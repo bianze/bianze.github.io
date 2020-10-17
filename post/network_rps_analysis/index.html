@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <title>Linux RSS RPS RFS剖析 - bianze - Welcome to bianze&#39;s blog</title>
+  <meta name="renderer" content="webkit" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+<meta name="theme-color" content="#f8f5ec" />
+<meta name="msapplication-navbutton-color" content="#f8f5ec">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="#f8f5ec">
+
+
+<meta name="author" content="bianze" /><meta name="description" content="引言 在网络负载高的系统中，我们经常可以看到某个CPU的软中断消耗非常高，这时这个CPU容易跑满，性能达到瓶颈值。为优化系统性能，需均衡收包软" /><meta name="keywords" content="Hugo, theme, even" />
+
+
+
+
+
+
+<meta name="generator" content="Hugo 0.66.0 with theme even" />
+
+
+<link rel="canonical" href="http://localhost:1313/post/network_rps_analysis/" />
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="manifest" href="/manifest.json">
+<link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5">
+
+
+
+<link href="/sass/main.min.8c3cbcb0324c2bb4875ceccba4007cbad4b4ac8377f33af9953c3e7684534a50.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@3.1.20/dist/jquery.fancybox.min.css" integrity="sha256-7TyXnr2YU040zfSP+rEcz29ggW4j56/ujTPwjMzyqFY=" crossorigin="anonymous">
+
+
+<meta property="og:title" content="Linux RSS RPS RFS剖析" />
+<meta property="og:description" content="引言 在网络负载高的系统中，我们经常可以看到某个CPU的软中断消耗非常高，这时这个CPU容易跑满，性能达到瓶颈值。为优化系统性能，需均衡收包软" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="http://localhost:1313/post/network_rps_analysis/" />
+<meta property="article:published_time" content="2020-08-24T16:41:34+08:00" />
+<meta property="article:modified_time" content="2020-08-24T16:41:34+08:00" />
+<meta itemprop="name" content="Linux RSS RPS RFS剖析">
+<meta itemprop="description" content="引言 在网络负载高的系统中，我们经常可以看到某个CPU的软中断消耗非常高，这时这个CPU容易跑满，性能达到瓶颈值。为优化系统性能，需均衡收包软">
+<meta itemprop="datePublished" content="2020-08-24T16:41:34&#43;08:00" />
+<meta itemprop="dateModified" content="2020-08-24T16:41:34&#43;08:00" />
+<meta itemprop="wordCount" content="3230">
+
+
+
+<meta itemprop="keywords" content="" /><meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="Linux RSS RPS RFS剖析"/>
+<meta name="twitter:description" content="引言 在网络负载高的系统中，我们经常可以看到某个CPU的软中断消耗非常高，这时这个CPU容易跑满，性能达到瓶颈值。为优化系统性能，需均衡收包软"/>
+
+<!--[if lte IE 9]>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/classlist/1.1.20170427/classList.min.js"></script>
+<![endif]-->
+
+<!--[if lt IE 9]>
+  <script src="https://cdn.jsdelivr.net/npm/html5shiv@3.7.3/dist/html5shiv.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/respond.js@1.4.2/dest/respond.min.js"></script>
+<![endif]-->
+
+</head>
+<body>
+  <div id="mobile-navbar" class="mobile-navbar">
+  <div class="mobile-header-logo">
+    <a href="/" class="logo">昪泽</a>
+  </div>
+  <div class="mobile-navbar-icon">
+    <span></span>
+    <span></span>
+    <span></span>
+  </div>
+</div>
+<nav id="mobile-menu" class="mobile-menu slideout-menu">
+  <ul class="mobile-menu-list">
+    <a href="/">
+        <li class="mobile-menu-item">Home</li>
+      </a><a href="/post/">
+        <li class="mobile-menu-item">Archives</li>
+      </a><a href="/tags/">
+        <li class="mobile-menu-item">Tags</li>
+      </a><a href="/categories/">
+        <li class="mobile-menu-item">Categories</li>
+      </a>
+  </ul>
+</nav>
+  <div class="container" id="mobile-panel">
+    <header id="header" class="header">
+        <div class="logo-wrapper">
+  <a href="/" class="logo">昪泽</a>
+</div>
+
+<nav class="site-navbar">
+  <ul id="menu" class="menu">
+    <li class="menu-item">
+        <a class="menu-item-link" href="/">Home</a>
+      </li><li class="menu-item">
+        <a class="menu-item-link" href="/post/">Archives</a>
+      </li><li class="menu-item">
+        <a class="menu-item-link" href="/tags/">Tags</a>
+      </li><li class="menu-item">
+        <a class="menu-item-link" href="/categories/">Categories</a>
+      </li>
+  </ul>
+</nav>
+    </header>
+
+    <main id="main" class="main">
+      <div class="content-wrapper">
+        <div id="content" class="content">
+          <article class="post">
+    
+    <header class="post-header">
+      <h1 class="post-title">Linux RSS RPS RFS剖析</h1>
+
+      <div class="post-meta">
+        <span class="post-time"> 2020-08-24 </span>
+        <div class="post-category">
+            <a href="/categories/%E5%86%85%E6%A0%B8%E5%8D%8F%E8%AE%AE%E6%A0%88/"> 内核协议栈 </a>
+            </div>
+        
+      </div>
+    </header>
+
+    <div class="post-toc" id="post-toc">
+  <h2 class="post-toc-title">Contents</h2>
+  <div class="post-toc-content always-active">
+    <nav id="TableOfContents">
+  <ul>
+    <li><a href="#引言">引言</a></li>
+    <li><a href="#rss">RSS</a></li>
+    <li><a href="#rps">RPS</a></li>
+    <li><a href="#rfs">RFS</a></li>
+    <li><a href="#源码分析">源码分析</a></li>
+  </ul>
+</nav>
+  </div>
+</div>
+    <div class="post-content">
+      <h2 id="引言">引言</h2>
+<p>在网络负载高的系统中，我们经常可以看到某个CPU的软中断消耗非常高，这时这个CPU容易跑满，性能达到瓶颈值。为优化系统性能，需均衡收包软中断开销，特别是在像calico这种组网模式下，中间的veth设备会多一次软中断的处理，非常容易导致CPU软中断冲高。解决办法通常有RSS、RPS、RFS几种方式，通过将中断或者软中断分散到多个CPU上解决该问题。</p>
+<h2 id="rss">RSS</h2>
+<p>RSS全称是receive side scaling，是网卡硬件支持的一种均衡模式，一般在多队列网卡上，将每个队列的中断（这里的中断默认指硬中断）绑定到固定的CPU上，这样多队列的数据包就可以分散到多个CPU上进行处理，降低单个CPU的开销。</p>
+<p>通过ethtool命令查看网卡队列情况：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-bash" data-lang="bash">~$ ethtool -l eth0
+Channel parameters <span class="k">for</span> eth0:
+Pre-set maximums:
+RX:		<span class="m">0</span>
+TX:		<span class="m">0</span>
+Other:		<span class="m">0</span>
+Combined:	<span class="m">2</span>
+Current hardware settings:
+RX:		<span class="m">0</span>
+TX:		<span class="m">0</span>
+Other:		<span class="m">0</span>
+Combined:	<span class="m">2</span>
+</code></pre></td></tr></table>
+</div>
+</div><p>maximums表示网卡最大支持的队列数，current表示网卡当前的队列数，如果当前的队列数比最大的小，可以通过ethtool -L eth0 rx/tx 命令修改收发队列数。</p>
+<p>通过/proc/interrupts可以查看网卡中断跟CPU的亲和性关系，同时也可以看到网卡的中断号：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-bash" data-lang="bash">~$ cat /proc/interrupts <span class="p">|</span> grep virtio0-input
+ 27:  <span class="m">113996987</span>          <span class="m">0</span>          <span class="m">0</span>          <span class="m">1</span>          <span class="m">0</span>          <span class="m">0</span>          <span class="m">0</span>         <span class="m">0</span>   PCI-MSI 49153-edge      virtio0-input.0
+ 29:          <span class="m">0</span>   <span class="m">98453684</span>          <span class="m">0</span>          <span class="m">0</span>          <span class="m">0</span>     <span class="m">257413</span>          <span class="m">0</span>         <span class="m">0</span>   PCI-MSI 49155-edge      virtio0-input.1
+</code></pre></td></tr></table>
+</div>
+</div><p>一般物理机上grep对应的网卡名即可，cvm有点区别。第一列表示网卡的中断号，根据网卡中断号再通过/proc/irq/$irqnum/smp_affinity可以设置中断号与CPU亲和性的关系</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-bash" data-lang="bash">~$ cat /proc/irq/27/smp_affinity
+0f
+</code></pre></td></tr></table>
+</div>
+</div><p>这里虽然设置了0-3号CPU的亲和性，但是可以看到中断都在0号CPU上，应该RSS最佳的设置还是一个队列对应一个CPU，其实一般现在网卡的队列个数都比较大，可以根据CPU核数来调整队列个数，最好做到一一映射。但是在我们cvm的场景中，看到网卡个数远小于CPU的个数，这个时候要么找云厂商看cvm上的网卡是否可以将队列数扩大到与CPU核数一直，否则就要RPS和RFS上场了。另外需要说明的是像veth, ipvlan这类虚拟网卡是没有硬件中断的，因此也没有RSS这么一说。</p>
+<h2 id="rps">RPS</h2>
+<p>RPS的全称是receive packet steering，RPS是一个纯软件的实现，在netif_receive_skb的流程中，根据数据包的四元组信息计算hash值，根据hash值与rps_cpu的设置将数据包发送到对应的CPU的backlog队列同时通过IPI中断触发一个对应CPU上的软中断，当前CPU的收包流程结束，后续由别的CPU进行收包解析等工作，以此来降低硬中断对应的CPU上的开销。</p>
+<p>RPS需要内核开启CONFIG_RPS选项，同时开启对应网卡的RPS选项, 默认不开启</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-bash" data-lang="bash"> ~$ cat /sys/class/net/eth0/queues/rx-0/rps_cpus 
+<span class="m">0</span>
+</code></pre></td></tr></table>
+</div>
+</div><p>开启的方式非常简单，只需要类似设置cpu亲和性一样，设置rps_cpu即可</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-bash" data-lang="bash">$ <span class="nb">echo</span> <span class="s2">&#34;f&#34;</span> &gt; /sys/class/net/eth0/queues/rx-0/rps_cpus
+$ cat /sys/class/net/eth0/queues/rx-0/rps_cpus
+0f
+</code></pre></td></tr></table>
+</div>
+</div><p>RSS将收到的数据从中断CPU转发给其它CPU，而业务进程又可能跑在另外一个CPU上，那么此时业务进程的cache命中率会降低，影响业务进程收包性能，如果能根据业务进程所在的CPU来调整RPS转发数据包的CPU，那么就可以提高cache命中率，因此RFS应运而生。</p>
+<h2 id="rfs">RFS</h2>
+<p>RFS全称是receive flow steering, 在RPS的基础上，加入对业务进程的考虑，尽量让转发后的数据包与业务进程在同一个CPU上。实现的方式就是通过一个全局的rps_sock_flow_table和每个网卡队列对应的rps_flow_table来完成，在业务进程收发包时，会在socket级别设置一个hash值添加到全局的rps_sock_flow_table中，同时也记录了业务进程所在的CPU，当netif_receive_skb收到一个数据包时，会先根据skb的hash值从全局rps_sock_flow_table找到next_cpu，如果没找到说明业务进程目前还没有设置rfs相关的信息，就先进入rps的处理流程，如果找到了则再从收包队列中的rps_flow_table中找到tcpu，根据一定的算法最终大概率可以让rps_sock_flow_table和rps_flow_table中找到的CPU为同一个，算法详解源码分析。</p>
+<p>RFS的开启需要设置rps_sock_flow_table和rps_flow_table，通过设置rps_flow_cnt开启网卡队列的设置，默认为0</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-bash" data-lang="bash">$ cat /sys/class/net/eth0/queues/rx-0/rps_flow_cnt 
+<span class="m">0</span>
+$ <span class="nb">echo</span> <span class="s2">&#34;4096&#34;</span> &gt; /sys/class/net/eth0/queues/rx-0/rps_flow_cnt
+$ cat /sys/class/net/eth0/queues/rx-0/rps_flow_cnt
+<span class="m">4096</span>
+</code></pre></td></tr></table>
+</div>
+</div><p>设置rps_sock_flow_entries sysctl选项开启socket层rfs设置，默认为0</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-bash" data-lang="bash">$ sysctl net.core.rps_sock_flow_entries
+net.core.rps_sock_flow_entries <span class="o">=</span> <span class="m">0</span>
+$ sysctl -w net.core.rps_sock_flow_entries<span class="o">=</span><span class="m">8192</span>
+net.core.rps_sock_flow_entries <span class="o">=</span> <span class="m">8192</span>
+$ sysctl net.core.rps_sock_flow_entries
+net.core.rps_sock_flow_entries <span class="o">=</span> <span class="m">8192</span>
+</code></pre></td></tr></table>
+</div>
+</div><p>这里单队列的个数rps_flow_cnt设置成4096，其实看linux的document可以发现这个值设置时会按2的次方向上取整，建议设置的个数是基于系统的业务流量来设置的，也就是说如果业务较多，有很多连接可以适当增大，这样hash的效果会好些，一般4096应该是OK的。rps_sock_flow_entries的数目设置成是网卡队列个数*单队列的rps_flow_cnt数，也就是说系统总的hash表的大小应该是每个网卡队列的hash表的大小之和。但是像veth这种中间转发设备而言，在veth的收包队列开启rps_flow_cnt并不会增加系统流的个数，这种中间设备的队列是不需要计算在内的，主要关注入口设备的队列数即可，当然系统内存足够时，可以适当增大rps_sock_flow_entries数。</p>
+<h2 id="源码分析">源码分析</h2>
+<p>RPS的实现全在get_rps_cpu函数中, RFS的实现主要分成两部分，一部分是业务进程在收发包的时候记录rps记录，可以查看调用sock_rps_record_flow_hash的地方是inet_sendmsg, inet_recvmsg, inet_accept等。</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span><span class="lnt">39
+</span><span class="lnt">40
+</span><span class="lnt">41
+</span><span class="lnt">42
+</span><span class="lnt">43
+</span><span class="lnt">44
+</span><span class="lnt">45
+</span><span class="lnt">46
+</span><span class="lnt">47
+</span><span class="lnt">48
+</span><span class="lnt">49
+</span><span class="lnt">50
+</span><span class="lnt">51
+</span><span class="lnt">52
+</span><span class="lnt">53
+</span><span class="lnt">54
+</span><span class="lnt">55
+</span><span class="lnt">56
+</span><span class="lnt">57
+</span><span class="lnt">58
+</span><span class="lnt">59
+</span><span class="lnt">60
+</span><span class="lnt">61
+</span><span class="lnt">62
+</span><span class="lnt">63
+</span><span class="lnt">64
+</span><span class="lnt">65
+</span><span class="lnt">66
+</span><span class="lnt">67
+</span><span class="lnt">68
+</span><span class="lnt">69
+</span><span class="lnt">70
+</span><span class="lnt">71
+</span><span class="lnt">72
+</span><span class="lnt">73
+</span><span class="lnt">74
+</span><span class="lnt">75
+</span><span class="lnt">76
+</span><span class="lnt">77
+</span><span class="lnt">78
+</span><span class="lnt">79
+</span><span class="lnt">80
+</span><span class="lnt">81
+</span><span class="lnt">82
+</span><span class="lnt">83
+</span><span class="lnt">84
+</span><span class="lnt">85
+</span><span class="lnt">86
+</span><span class="lnt">87
+</span><span class="lnt">88
+</span><span class="lnt">89
+</span><span class="lnt">90
+</span><span class="lnt">91
+</span><span class="lnt">92
+</span><span class="lnt">93
+</span><span class="lnt">94
+</span><span class="lnt">95
+</span><span class="lnt">96
+</span><span class="lnt">97
+</span><span class="lnt">98
+</span><span class="lnt">99
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-c" data-lang="c"><span class="cm">/*
+</span><span class="cm"> * get_rps_cpu is called from netif_receive_skb and returns the target
+</span><span class="cm"> * CPU from the RPS map of the receiving queue for a given skb.
+</span><span class="cm"> * rcu_read_lock must be held on entry.
+</span><span class="cm"> */</span>
+<span class="k">static</span> <span class="kt">int</span> <span class="nf">get_rps_cpu</span><span class="p">(</span><span class="k">struct</span> <span class="n">net_device</span> <span class="o">*</span><span class="n">dev</span><span class="p">,</span> <span class="k">struct</span> <span class="n">sk_buff</span> <span class="o">*</span><span class="n">skb</span><span class="p">,</span>
+                       <span class="k">struct</span> <span class="n">rps_dev_flow</span> <span class="o">**</span><span class="n">rflowp</span><span class="p">)</span>
+<span class="p">{</span>
+        <span class="k">const</span> <span class="k">struct</span> <span class="n">rps_sock_flow_table</span> <span class="o">*</span><span class="n">sock_flow_table</span><span class="p">;</span>
+        <span class="k">struct</span> <span class="n">netdev_rx_queue</span> <span class="o">*</span><span class="n">rxqueue</span> <span class="o">=</span> <span class="n">dev</span><span class="o">-&gt;</span><span class="n">_rx</span><span class="p">;</span>
+        <span class="k">struct</span> <span class="n">rps_dev_flow_table</span> <span class="o">*</span><span class="n">flow_table</span><span class="p">;</span>
+        <span class="k">struct</span> <span class="n">rps_map</span> <span class="o">*</span><span class="n">map</span><span class="p">;</span>
+        <span class="kt">int</span> <span class="n">cpu</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+        <span class="n">u32</span> <span class="n">tcpu</span><span class="p">;</span>
+        <span class="n">u32</span> <span class="n">hash</span><span class="p">;</span>
+ 
+        <span class="k">if</span> <span class="p">(</span><span class="n">skb_rx_queue_recorded</span><span class="p">(</span><span class="n">skb</span><span class="p">))</span> <span class="p">{</span>
+                <span class="n">u16</span> <span class="n">index</span> <span class="o">=</span> <span class="n">skb_get_rx_queue</span><span class="p">(</span><span class="n">skb</span><span class="p">);</span>
+
+                <span class="k">if</span> <span class="p">(</span><span class="n">unlikely</span><span class="p">(</span><span class="n">index</span> <span class="o">&gt;=</span> <span class="n">dev</span><span class="o">-&gt;</span><span class="n">real_num_rx_queues</span><span class="p">))</span> <span class="p">{</span>
+                        <span class="n">WARN_ONCE</span><span class="p">(</span><span class="n">dev</span><span class="o">-&gt;</span><span class="n">real_num_rx_queues</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">,</span>
+                                  <span class="s">&#34;%s received packet on queue %u, but number &#34;</span>
+                                  <span class="s">&#34;of RX queues is %u</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">,</span>
+                                  <span class="n">dev</span><span class="o">-&gt;</span><span class="n">name</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">dev</span><span class="o">-&gt;</span><span class="n">real_num_rx_queues</span><span class="p">);</span>
+                        <span class="k">goto</span> <span class="n">done</span><span class="p">;</span>
+                <span class="p">}</span>
+                <span class="n">rxqueue</span> <span class="o">+=</span> <span class="n">index</span><span class="p">;</span>
+        <span class="p">}</span>
+
+        <span class="cm">/* Avoid computing hash if RFS/RPS is not active for this rxqueue */</span>
+
+        <span class="n">flow_table</span> <span class="o">=</span> <span class="n">rcu_dereference</span><span class="p">(</span><span class="n">rxqueue</span><span class="o">-&gt;</span><span class="n">rps_flow_table</span><span class="p">);</span><span class="c1">//首先获取rxqueue的rfs哈希表
+</span><span class="c1"></span>        <span class="n">map</span> <span class="o">=</span> <span class="n">rcu_dereference</span><span class="p">(</span><span class="n">rxqueue</span><span class="o">-&gt;</span><span class="n">rps_map</span><span class="p">);</span><span class="c1">//获取rxqueue的rps_cpu映射表
+</span><span class="c1"></span>        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">flow_table</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="n">map</span><span class="p">)</span><span class="c1">//如果都没rps和rfs都没设置，直接返回
+</span><span class="c1"></span>                <span class="k">goto</span> <span class="n">done</span><span class="p">;</span>
+
+        <span class="n">skb_reset_network_header</span><span class="p">(</span><span class="n">skb</span><span class="p">);</span>
+        <span class="n">hash</span> <span class="o">=</span> <span class="n">skb_get_hash</span><span class="p">(</span><span class="n">skb</span><span class="p">);</span><span class="c1">//根据四元组计算skb的哈希值
+</span><span class="c1"></span>        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">hash</span><span class="p">)</span>
+                <span class="k">goto</span> <span class="n">done</span><span class="p">;</span>
+        
+        <span class="n">sock_flow_table</span> <span class="o">=</span> <span class="n">rcu_dereference</span><span class="p">(</span><span class="n">rps_sock_flow_table</span><span class="p">);</span><span class="c1">//获取全局的rfs哈希表
+</span><span class="c1"></span>        <span class="k">if</span> <span class="p">(</span><span class="n">flow_table</span> <span class="o">&amp;&amp;</span> <span class="n">sock_flow_table</span><span class="p">)</span> <span class="p">{</span><span class="c1">//如果设置了rfs
+</span><span class="c1"></span>                <span class="k">struct</span> <span class="n">rps_dev_flow</span> <span class="o">*</span><span class="n">rflow</span><span class="p">;</span>
+                <span class="n">u32</span> <span class="n">next_cpu</span><span class="p">;</span>
+                <span class="n">u32</span> <span class="n">ident</span><span class="p">;</span>
+
+                <span class="cm">/* First check into global flow table if there is a match */</span>
+                <span class="n">ident</span> <span class="o">=</span> <span class="n">sock_flow_table</span><span class="o">-&gt;</span><span class="n">ents</span><span class="p">[</span><span class="n">hash</span> <span class="o">&amp;</span> <span class="n">sock_flow_table</span><span class="o">-&gt;</span><span class="n">mask</span><span class="p">];</span><span class="c1">//获取全局rfs表中的匹配项
+</span><span class="c1"></span>                <span class="k">if</span> <span class="p">((</span><span class="n">ident</span> <span class="o">^</span> <span class="n">hash</span><span class="p">)</span> <span class="o">&amp;</span> <span class="o">~</span><span class="n">rps_cpu_mask</span><span class="p">)</span>
+                        <span class="k">goto</span> <span class="n">try_rps</span><span class="p">;</span>
+
+                <span class="n">next_cpu</span> <span class="o">=</span> <span class="n">ident</span> <span class="o">&amp;</span> <span class="n">rps_cpu_mask</span><span class="p">;</span><span class="c1">//获取业务进程所在的cpu
+</span><span class="c1"></span>
+                <span class="cm">/* OK, now we know there is a match,
+</span><span class="cm">                 * we can look at the local (per receive queue) flow table
+</span><span class="cm">                 */</span>
+                <span class="n">rflow</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">flow_table</span><span class="o">-&gt;</span><span class="n">flows</span><span class="p">[</span><span class="n">hash</span> <span class="o">&amp;</span> <span class="n">flow_table</span><span class="o">-&gt;</span><span class="n">mask</span><span class="p">];</span><span class="c1">//获取rxqueue的流表项，得到目标转发CPU
+</span><span class="c1"></span>                <span class="n">tcpu</span> <span class="o">=</span> <span class="n">rflow</span><span class="o">-&gt;</span><span class="n">cpu</span><span class="p">;</span>
+
+                <span class="cm">/*
+</span><span class="cm">                 * If the desired CPU (where last recvmsg was done) is
+</span><span class="cm">                 * different from current CPU (one in the rx-queue flow
+</span><span class="cm">                 * table entry), switch if one of the following holds:
+</span><span class="cm">                 *   - Current CPU is unset (&gt;= nr_cpu_ids).
+</span><span class="cm">                 *   - Current CPU is offline.
+</span><span class="cm">                 *   - The current CPU&#39;s queue tail has advanced beyond the
+</span><span class="cm">                 *     last packet that was enqueued using this table entry.
+</span><span class="cm">                 *     This guarantees that all previous packets for the flow
+</span><span class="cm">                 *     have been dequeued, thus preserving in order delivery.
+</span><span class="cm">                 */</span>
+                <span class="k">if</span> <span class="p">(</span><span class="n">unlikely</span><span class="p">(</span><span class="n">tcpu</span> <span class="o">!=</span> <span class="n">next_cpu</span><span class="p">)</span> <span class="o">&amp;&amp;</span><span class="c1">//看英文注释，不翻译
+</span><span class="c1"></span>                    <span class="p">(</span><span class="n">tcpu</span> <span class="o">&gt;=</span> <span class="n">nr_cpu_ids</span> <span class="o">||</span> <span class="o">!</span><span class="n">cpu_online</span><span class="p">(</span><span class="n">tcpu</span><span class="p">)</span> <span class="o">||</span>
+                     <span class="p">((</span><span class="kt">int</span><span class="p">)(</span><span class="n">per_cpu</span><span class="p">(</span><span class="n">softnet_data</span><span class="p">,</span> <span class="n">tcpu</span><span class="p">).</span><span class="n">input_queue_head</span> <span class="o">-</span>
+                      <span class="n">rflow</span><span class="o">-&gt;</span><span class="n">last_qtail</span><span class="p">))</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">))</span> <span class="p">{</span>
+                        <span class="n">tcpu</span> <span class="o">=</span> <span class="n">next_cpu</span><span class="p">;</span>
+                        <span class="n">rflow</span> <span class="o">=</span> <span class="n">set_rps_cpu</span><span class="p">(</span><span class="n">dev</span><span class="p">,</span> <span class="n">skb</span><span class="p">,</span> <span class="n">rflow</span><span class="p">,</span> <span class="n">next_cpu</span><span class="p">);</span>
+                <span class="p">}</span>
+                
+                <span class="k">if</span> <span class="p">(</span><span class="n">tcpu</span> <span class="o">&lt;</span> <span class="n">nr_cpu_ids</span> <span class="o">&amp;&amp;</span> <span class="n">cpu_online</span><span class="p">(</span><span class="n">tcpu</span><span class="p">))</span> <span class="p">{</span><span class="c1">//根据rfs处理结果，设置目标转发cpu，然后返回，能看到有rfs时，rps已经被略过了
+</span><span class="c1"></span>                        <span class="o">*</span><span class="n">rflowp</span> <span class="o">=</span> <span class="n">rflow</span><span class="p">;</span>
+                        <span class="n">cpu</span> <span class="o">=</span> <span class="n">tcpu</span><span class="p">;</span>
+                        <span class="k">goto</span> <span class="n">done</span><span class="p">;</span>
+                <span class="p">}</span>
+        <span class="p">}</span>
+
+<span class="nl">try_rps</span><span class="p">:</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="n">map</span><span class="p">)</span> <span class="p">{</span><span class="c1">//rps计算流程
+</span><span class="c1"></span>                <span class="n">tcpu</span> <span class="o">=</span> <span class="n">map</span><span class="o">-&gt;</span><span class="n">cpus</span><span class="p">[</span><span class="n">reciprocal_scale</span><span class="p">(</span><span class="n">hash</span><span class="p">,</span> <span class="n">map</span><span class="o">-&gt;</span><span class="n">len</span><span class="p">)];</span>
+                <span class="k">if</span> <span class="p">(</span><span class="n">cpu_online</span><span class="p">(</span><span class="n">tcpu</span><span class="p">))</span> <span class="p">{</span>
+                        <span class="n">cpu</span> <span class="o">=</span> <span class="n">tcpu</span><span class="p">;</span>
+                        <span class="k">goto</span> <span class="n">done</span><span class="p">;</span>
+                <span class="p">}</span>
+        <span class="p">}</span>
+
+<span class="nl">done</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">cpu</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></td></tr></table>
+</div>
+</div>
+    </div>
+
+    <div class="post-copyright">
+  <p class="copyright-item">
+    <span class="item-title">Author</span>
+    <span class="item-content">bianze</span>
+  </p>
+  <p class="copyright-item">
+    <span class="item-title">LastMod</span>
+    <span class="item-content">
+        2020-08-24
+        
+    </span>
+  </p>
+  
+  
+</div>
+<footer class="post-footer">
+      
+      <nav class="post-nav">
+        
+        <a class="next" href="/post/tcp_quick_delay_ack/">
+            <span class="next-text nav-default">TCP delay ACK超时动态调节分析</span>
+            <span class="next-text nav-mobile">Next</span>
+            <i class="iconfont icon-right"></i>
+          </a>
+      </nav>
+    </footer>
+  </article>
+        </div>
+        
+
+  
+
+  
+
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="social-links">
+      <a href="mailto:your@email.com" class="iconfont icon-email" title="email"></a>
+      <a href="http://localhost:1313" class="iconfont icon-stack-overflow" title="stack-overflow"></a>
+      <a href="http://localhost:1313" class="iconfont icon-twitter" title="twitter"></a>
+      <a href="http://localhost:1313" class="iconfont icon-facebook" title="facebook"></a>
+      <a href="http://localhost:1313" class="iconfont icon-linkedin" title="linkedin"></a>
+      <a href="http://localhost:1313" class="iconfont icon-google" title="google"></a>
+      <a href="http://localhost:1313" class="iconfont icon-github" title="github"></a>
+      <a href="http://localhost:1313" class="iconfont icon-weibo" title="weibo"></a>
+      <a href="http://localhost:1313" class="iconfont icon-zhihu" title="zhihu"></a>
+      <a href="http://localhost:1313" class="iconfont icon-douban" title="douban"></a>
+      <a href="http://localhost:1313" class="iconfont icon-pocket" title="pocket"></a>
+      <a href="http://localhost:1313" class="iconfont icon-tumblr" title="tumblr"></a>
+      <a href="http://localhost:1313" class="iconfont icon-instagram" title="instagram"></a>
+      <a href="http://localhost:1313" class="iconfont icon-gitlab" title="gitlab"></a>
+      <a href="http://localhost:1313" class="iconfont icon-bilibili" title="bilibili"></a>
+  <a href="http://localhost:1313/index.xml" type="application/rss+xml" class="iconfont icon-rss" title="rss"></a>
+</div>
+
+<div class="copyright">
+  <span class="power-by">
+    Powered by <a class="hexo-link" href="https://gohugo.io">Hugo</a>
+  </span>
+  <span class="division">|</span>
+  <span class="theme-info">
+    Theme - 
+    <a class="theme-link" href="https://github.com/olOwOlo/hugo-theme-even">Even</a>
+  </span>
+
+  
+
+  <span class="copyright-year">
+    &copy; 
+    2017 - 
+    2020
+    <span class="heart">
+      <i class="iconfont icon-heart"></i>
+    </span>
+    <span class="author">bianze</span>
+  </span>
+</div>
+    </footer>
+
+    <div class="back-to-top" id="back-to-top">
+      <i class="iconfont icon-up"></i>
+    </div>
+  </div>
+  
+  <script src="https://cdn.jsdelivr.net/npm/jquery@3.2.1/dist/jquery.min.js" integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4=" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/slideout@1.0.1/dist/slideout.min.js" integrity="sha256-t+zJ/g8/KXIJMjSVQdnibt4dlaDxc9zXr/9oNPeWqdg=" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@3.1.20/dist/jquery.fancybox.min.js" integrity="sha256-XVLffZaxoWfGUEbdzuLi7pwaUJv1cecsQJQqGLe7axY=" crossorigin="anonymous"></script>
+
+
+
+<script type="text/javascript" src="/js/main.min.d7b7ada643c9c1a983026e177f141f7363b4640d619caf01d8831a6718cd44ea.js"></script>
+
+
+
+
+
+
+
+
+</body>
+</html>

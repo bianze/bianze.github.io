@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <title>容器网络数据面XDP redirect实践 - bianze - Welcome to bianze&#39;s blog</title>
+  <meta name="renderer" content="webkit" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+<meta name="theme-color" content="#f8f5ec" />
+<meta name="msapplication-navbutton-color" content="#f8f5ec">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="#f8f5ec">
+
+
+<meta name="author" content="bianze" /><meta name="description" content="背景 内核网络栈处理比较厚重，社区为此引入了ebpf方案，在内核协议栈的多处处理路径上设了hook，以方便开发者attach ebpf程序byp" /><meta name="keywords" content="Hugo, theme, even" />
+
+
+
+
+
+
+<meta name="generator" content="Hugo 0.66.0 with theme even" />
+
+
+<link rel="canonical" href="http://localhost:1313/post/ebpf_xdp_redirect/" />
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="manifest" href="/manifest.json">
+<link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5">
+
+
+
+<link href="/sass/main.min.8c3cbcb0324c2bb4875ceccba4007cbad4b4ac8377f33af9953c3e7684534a50.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@3.1.20/dist/jquery.fancybox.min.css" integrity="sha256-7TyXnr2YU040zfSP+rEcz29ggW4j56/ujTPwjMzyqFY=" crossorigin="anonymous">
+
+
+<meta property="og:title" content="容器网络数据面XDP redirect实践" />
+<meta property="og:description" content="背景 内核网络栈处理比较厚重，社区为此引入了ebpf方案，在内核协议栈的多处处理路径上设了hook，以方便开发者attach ebpf程序byp" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="http://localhost:1313/post/ebpf_xdp_redirect/" />
+<meta property="article:published_time" content="2020-07-21T11:27:45+08:00" />
+<meta property="article:modified_time" content="2020-07-21T11:27:45+08:00" />
+<meta itemprop="name" content="容器网络数据面XDP redirect实践">
+<meta itemprop="description" content="背景 内核网络栈处理比较厚重，社区为此引入了ebpf方案，在内核协议栈的多处处理路径上设了hook，以方便开发者attach ebpf程序byp">
+<meta itemprop="datePublished" content="2020-07-21T11:27:45&#43;08:00" />
+<meta itemprop="dateModified" content="2020-07-21T11:27:45&#43;08:00" />
+<meta itemprop="wordCount" content="2610">
+
+
+
+<meta itemprop="keywords" content="XDP,EBPF," /><meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="容器网络数据面XDP redirect实践"/>
+<meta name="twitter:description" content="背景 内核网络栈处理比较厚重，社区为此引入了ebpf方案，在内核协议栈的多处处理路径上设了hook，以方便开发者attach ebpf程序byp"/>
+
+<!--[if lte IE 9]>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/classlist/1.1.20170427/classList.min.js"></script>
+<![endif]-->
+
+<!--[if lt IE 9]>
+  <script src="https://cdn.jsdelivr.net/npm/html5shiv@3.7.3/dist/html5shiv.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/respond.js@1.4.2/dest/respond.min.js"></script>
+<![endif]-->
+
+</head>
+<body>
+  <div id="mobile-navbar" class="mobile-navbar">
+  <div class="mobile-header-logo">
+    <a href="/" class="logo">昪泽</a>
+  </div>
+  <div class="mobile-navbar-icon">
+    <span></span>
+    <span></span>
+    <span></span>
+  </div>
+</div>
+<nav id="mobile-menu" class="mobile-menu slideout-menu">
+  <ul class="mobile-menu-list">
+    <a href="/">
+        <li class="mobile-menu-item">Home</li>
+      </a><a href="/post/">
+        <li class="mobile-menu-item">Archives</li>
+      </a><a href="/tags/">
+        <li class="mobile-menu-item">Tags</li>
+      </a><a href="/categories/">
+        <li class="mobile-menu-item">Categories</li>
+      </a>
+  </ul>
+</nav>
+  <div class="container" id="mobile-panel">
+    <header id="header" class="header">
+        <div class="logo-wrapper">
+  <a href="/" class="logo">昪泽</a>
+</div>
+
+<nav class="site-navbar">
+  <ul id="menu" class="menu">
+    <li class="menu-item">
+        <a class="menu-item-link" href="/">Home</a>
+      </li><li class="menu-item">
+        <a class="menu-item-link" href="/post/">Archives</a>
+      </li><li class="menu-item">
+        <a class="menu-item-link" href="/tags/">Tags</a>
+      </li><li class="menu-item">
+        <a class="menu-item-link" href="/categories/">Categories</a>
+      </li>
+  </ul>
+</nav>
+    </header>
+
+    <main id="main" class="main">
+      <div class="content-wrapper">
+        <div id="content" class="content">
+          <article class="post">
+    
+    <header class="post-header">
+      <h1 class="post-title">容器网络数据面XDP redirect实践</h1>
+
+      <div class="post-meta">
+        <span class="post-time"> 2020-07-21 </span>
+        <div class="post-category">
+            <a href="/categories/ebpf/"> EBPF </a>
+            </div>
+        
+      </div>
+    </header>
+
+    <div class="post-toc" id="post-toc">
+  <h2 class="post-toc-title">Contents</h2>
+  <div class="post-toc-content always-active">
+    <nav id="TableOfContents">
+  <ul>
+    <li><a href="#纯路由方案当前">纯路由方案（当前）</a></li>
+    <li><a href="#xdp-redirect方案">XDP redirect方案</a></li>
+    <li><a href="#ipvlan方案">IPVlan方案</a></li>
+  </ul>
+
+  <ul>
+    <li><a href="#测试命令">测试命令</a></li>
+    <li><a href="#纯路由环境搭建">纯路由环境搭建</a></li>
+    <li><a href="#xdp测试环境搭建">XDP测试环境搭建</a></li>
+    <li><a href="#ipvlan环境搭建">IPVlan环境搭建</a></li>
+  </ul>
+</nav>
+  </div>
+</div>
+    <div class="post-content">
+      <h1 id="背景">背景</h1>
+<p>内核网络栈处理比较厚重，社区为此引入了ebpf方案，在内核协议栈的多处处理路径上设了hook，以方便开发者attach ebpf程序bypass内核的处理，或者辅助内核做一部分工作。</p>
+<p>在云场景下，cilium使用ebpf技术提供了很好的示范作用，为此先调研看cilium是如何使用ebpf技术的，并且如何应用到容器云场景中，以期看是否有可以落地到我们内部场景的技术点。</p>
+<p>禀着边调研边实践的想法，在实践中加深理解，发现初步有一个xdp redirect的方案可以bypass部分协议栈的处理。因此希望能够实践下，一方面理解ebpf是怎么在实践中应用的，另一方面也看下是否有真实的性能提升，可以落地到我们场景中，于是有了下述的实践。在实践过程中，同时也测试对比了下云原生的ipvlan方案在这种场景下的性能，做个对比，为后续技术落地提供些原始数据。</p>
+<h1 id="研究结果">研究结果</h1>
+<p>在叙述繁琐的实践过程之前，我们先来看下最终的数据结果：</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>纯路由方案（当前）</th>
+<th>XDP方案</th>
+<th>IPVlan方案</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>TCP_STREAM</td>
+<td>3004Mbps</td>
+<td>3017Mbps</td>
+<td>4408Mbps</td>
+</tr>
+<tr>
+<td>TCP_RR</td>
+<td>108753pps</td>
+<td>109637pps</td>
+<td>140628pps</td>
+</tr>
+<tr>
+<td>TCP_CRR</td>
+<td>21728pps</td>
+<td>21624pps</td>
+<td>28475pps</td>
+</tr>
+</tbody>
+</table>
+<p>可以看到XDP方案性能与当前纯路由方案的性能基本没有区别，提升不明显；而IPVlan方案有较明显的性能提升，在TCP_STREAM场景，性能提升46%，TCP_RR场景提升29%，TCP_CRR场景提升31%。</p>
+<p>至于XDP方案性能提升不明显的原因，我们后面在方案分析中再详细阐述。<strong>从实践结果看，XDP redirect方案在该场景下几乎没有收益，而IPVlan方案收益明显，后面可以重点投入IPVlan的方案中，看如何落地到我们的场景中</strong>。</p>
+<h1 id="方案介绍">方案介绍</h1>
+<h2 id="纯路由方案当前">纯路由方案（当前）</h2>
+<p><img src="/pic/ebpf/pure_route.png" alt="pure_route"></p>
+<p>我们当前的方案为纯路由方案，通过路由的方式找到对应的设备，然后进行转发，在数据转发时需要走一遍host侧的协议栈。</p>
+<h2 id="xdp-redirect方案">XDP redirect方案</h2>
+<p><img src="/pic/ebpf/xdp_redirect.png" alt="xdp_redirect"></p>
+<p>XDP redirect方案在host的veth设备上attach ebpf程序，接管veth设备的收包，在ebpf程序内进行路由查找，然后直接转发到对应的设备。这样的话bypass了内核协议栈veth驱动层到IP层之间的收发包流程，但相应的有ebpf程序的处理开销。从最终的测试结果看，这部分的处理替换并不能带来显著的性能提升。</p>
+<p>原因在于，XDP方案与纯路由方案在数据流的处理上没有本质的区别，XDP redirect在这种场景使用时，veth设备上处理的已经是封装好的skb了，并没有节省在物理网卡上做redirect时skb封包相关的处理，走路由查询和走XDP处理在没有挂netfilter钩子时差异并不大，走路由查询也就多了几次函数调用，因此从处理流程来看，有这样的测试结果也是能说得通的。</p>
+<h2 id="ipvlan方案">IPVlan方案</h2>
+<p><img src="/pic/ebpf/ipvlan.png" alt="ipvlan"></p>
+<p>ipv1和ipv2设备都是eth0上创建的ipvlan设备，主设备eth0上维护了一个所有ipvlan子设备的hash表，在需要做数据转发时，直接查找ha sh表找到对应的接收设备。</p>
+<p>对比纯路由方案和XDP方案，可以看到IPVlan方案减少了一次调度切换，减少了从驱动层到IP层再从IP层到驱动层的处理开销，而且从测试结果也可以看到同节点的这种场景IPVlan有显著的性能提升。</p>
+<h1 id="测试过程">测试过程</h1>
+<h2 id="测试命令">测试命令</h2>
+<p>使用netperf对性能进行测试，在测试过程中做绑核处理，同时观察CPU的开销。netperf对于TCP测试有常见的三种场景: TCP_STREAM, TCP_RR, TCP_CRR，TCP_STREAM是建立连接后，发端不断的发指定数据长度的数据包进行压测，收端仅回ACK；TCP_RR是建立连接后，发端发送一定长度的数据包，然后等待收包收到request后，回复reply，同时可以指定reply的包大小；TCP_CRR是不断创建连接，每次建立连接后传输一定的数据，并等待收端回复reply，然后拆除连接，类似于http请求的场景。</p>
+<p>在pod1开启服务端：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-bash" data-lang="bash">taskset -c <span class="m">0</span> netserver
+</code></pre></td></tr></table>
+</div>
+</div><p>在pod2开启客户端：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-bash" data-lang="bash">TCP_STREAM: taskset -c <span class="m">5</span> netperf -H 192.168.10.11 -t TCP_STREAM -l <span class="m">60</span> -- -m <span class="m">1400</span>
+
+TCP_RR: taskset -c <span class="m">5</span> netperf -H 192.168.10.11 -t TCP_RR -l <span class="m">60</span> -- -r <span class="m">64</span> <span class="m">64</span>
+
+TCP_CRR: taskset -c <span class="m">5</span> netperf -H 192.168.10.11 -t TCP_CRR -l <span class="m">60</span> -- -r <span class="m">64</span> <span class="m">64</span>
+</code></pre></td></tr></table>
+</div>
+</div><h2 id="纯路由环境搭建">纯路由环境搭建</h2>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span><span class="lnt">39
+</span><span class="lnt">40
+</span><span class="lnt">41
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-bash" data-lang="bash">ip netns add net1
+
+ip link add veth1 <span class="nb">type</span> veth peer name veth1-inner
+
+ip link <span class="nb">set</span> veth1-inner netns net1
+
+ifconfig veth1 up
+
+ip route add 192.168.10.11/32 dev veth1
+
+ip netns <span class="nb">exec</span> net1 bash
+
+ifconfig veth1-inner 192.168.10.11/24 up
+
+ip route add 169.254.1.1 dev veth1-inner
+
+ip route add default via 169.254.1.1 dev veth1-inner
+
+arp -i veth1-inner -s 169.254.1.1 c6:8e:06:43:cb:65
+
+
+
+ip netns add net2
+
+ip link add veth2 <span class="nb">type</span> veth peer name veth2-inner
+
+ip link <span class="nb">set</span> veth2-inner netns net2
+
+ifconfig veth2 up
+
+ip route add 192.168.20.11/32 dev veth2
+
+ip netns <span class="nb">exec</span> net2 bash
+
+ifconfig veth2-inner 192.168.20.11/24 up
+
+ip route add 169.254.1.1 dev veth2-inner
+
+ip route add default via 169.254.1.1 dev veth2-inner
+
+arp -i veth2-inner -s 169.254.1.1 06:b6:f1:2a:bb:03
+</code></pre></td></tr></table>
+</div>
+</div><h2 id="xdp测试环境搭建">XDP测试环境搭建</h2>
+<p>需要先写个XDP的ebpf程序，然后编译，需要用到clang llvm这些，具体编译环境的搭建可以参考bcc的手册，就不再这里赘述，这里主要介绍XDP redirect的环境搭建。</p>
+<p>XDP核心代码：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt">  1
+</span><span class="lnt">  2
+</span><span class="lnt">  3
+</span><span class="lnt">  4
+</span><span class="lnt">  5
+</span><span class="lnt">  6
+</span><span class="lnt">  7
+</span><span class="lnt">  8
+</span><span class="lnt">  9
+</span><span class="lnt"> 10
+</span><span class="lnt"> 11
+</span><span class="lnt"> 12
+</span><span class="lnt"> 13
+</span><span class="lnt"> 14
+</span><span class="lnt"> 15
+</span><span class="lnt"> 16
+</span><span class="lnt"> 17
+</span><span class="lnt"> 18
+</span><span class="lnt"> 19
+</span><span class="lnt"> 20
+</span><span class="lnt"> 21
+</span><span class="lnt"> 22
+</span><span class="lnt"> 23
+</span><span class="lnt"> 24
+</span><span class="lnt"> 25
+</span><span class="lnt"> 26
+</span><span class="lnt"> 27
+</span><span class="lnt"> 28
+</span><span class="lnt"> 29
+</span><span class="lnt"> 30
+</span><span class="lnt"> 31
+</span><span class="lnt"> 32
+</span><span class="lnt"> 33
+</span><span class="lnt"> 34
+</span><span class="lnt"> 35
+</span><span class="lnt"> 36
+</span><span class="lnt"> 37
+</span><span class="lnt"> 38
+</span><span class="lnt"> 39
+</span><span class="lnt"> 40
+</span><span class="lnt"> 41
+</span><span class="lnt"> 42
+</span><span class="lnt"> 43
+</span><span class="lnt"> 44
+</span><span class="lnt"> 45
+</span><span class="lnt"> 46
+</span><span class="lnt"> 47
+</span><span class="lnt"> 48
+</span><span class="lnt"> 49
+</span><span class="lnt"> 50
+</span><span class="lnt"> 51
+</span><span class="lnt"> 52
+</span><span class="lnt"> 53
+</span><span class="lnt"> 54
+</span><span class="lnt"> 55
+</span><span class="lnt"> 56
+</span><span class="lnt"> 57
+</span><span class="lnt"> 58
+</span><span class="lnt"> 59
+</span><span class="lnt"> 60
+</span><span class="lnt"> 61
+</span><span class="lnt"> 62
+</span><span class="lnt"> 63
+</span><span class="lnt"> 64
+</span><span class="lnt"> 65
+</span><span class="lnt"> 66
+</span><span class="lnt"> 67
+</span><span class="lnt"> 68
+</span><span class="lnt"> 69
+</span><span class="lnt"> 70
+</span><span class="lnt"> 71
+</span><span class="lnt"> 72
+</span><span class="lnt"> 73
+</span><span class="lnt"> 74
+</span><span class="lnt"> 75
+</span><span class="lnt"> 76
+</span><span class="lnt"> 77
+</span><span class="lnt"> 78
+</span><span class="lnt"> 79
+</span><span class="lnt"> 80
+</span><span class="lnt"> 81
+</span><span class="lnt"> 82
+</span><span class="lnt"> 83
+</span><span class="lnt"> 84
+</span><span class="lnt"> 85
+</span><span class="lnt"> 86
+</span><span class="lnt"> 87
+</span><span class="lnt"> 88
+</span><span class="lnt"> 89
+</span><span class="lnt"> 90
+</span><span class="lnt"> 91
+</span><span class="lnt"> 92
+</span><span class="lnt"> 93
+</span><span class="lnt"> 94
+</span><span class="lnt"> 95
+</span><span class="lnt"> 96
+</span><span class="lnt"> 97
+</span><span class="lnt"> 98
+</span><span class="lnt"> 99
+</span><span class="lnt">100
+</span><span class="lnt">101
+</span><span class="lnt">102
+</span><span class="lnt">103
+</span><span class="lnt">104
+</span><span class="lnt">105
+</span><span class="lnt">106
+</span><span class="lnt">107
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-c" data-lang="c"><span class="n">SEC</span><span class="p">(</span><span class="s">&#34;xdp_router&#34;</span><span class="p">)</span>
+<span class="kt">int</span> <span class="n">xdp_router_func</span><span class="p">(</span><span class="k">struct</span> <span class="n">xdp_md</span> <span class="o">*</span><span class="n">ctx</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="kt">void</span> <span class="o">*</span><span class="n">data_end</span> <span class="o">=</span> <span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="p">)(</span><span class="kt">long</span><span class="p">)</span><span class="n">ctx</span><span class="o">-&gt;</span><span class="n">data_end</span><span class="p">;</span>
+    <span class="kt">void</span> <span class="o">*</span><span class="n">data</span> <span class="o">=</span> <span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="p">)(</span><span class="kt">long</span><span class="p">)</span><span class="n">ctx</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">;</span>
+    <span class="k">struct</span> <span class="n">bpf_fib_lookup</span> <span class="n">fib_params</span> <span class="o">=</span> <span class="p">{};</span>
+    <span class="k">struct</span> <span class="n">ethhdr</span> <span class="o">*</span><span class="n">eth</span> <span class="o">=</span> <span class="n">data</span><span class="p">;</span>
+    <span class="k">struct</span> <span class="n">ipv6hdr</span> <span class="o">*</span><span class="n">ip6h</span><span class="p">;</span>
+    <span class="k">struct</span> <span class="n">iphdr</span> <span class="o">*</span><span class="n">iph</span><span class="p">;</span>
+    <span class="n">__u16</span> <span class="n">h_proto</span><span class="p">;</span>
+    <span class="n">__u64</span> <span class="n">nh_off</span><span class="p">;</span>
+    <span class="kt">int</span> <span class="n">rc</span><span class="p">;</span>
+    <span class="kt">int</span> <span class="n">action</span> <span class="o">=</span> <span class="n">XDP_PASS</span><span class="p">;</span>
+
+		<span class="n">nh_off</span> <span class="o">=</span> <span class="k">sizeof</span><span class="p">(</span><span class="o">*</span><span class="n">eth</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">data</span> <span class="o">+</span> <span class="n">nh_off</span> <span class="o">&gt;</span> <span class="n">data_end</span><span class="p">)</span> <span class="p">{</span>
+            <span class="n">action</span> <span class="o">=</span> <span class="n">XDP_DROP</span><span class="p">;</span>
+            <span class="k">goto</span> <span class="n">out</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="n">h_proto</span> <span class="o">=</span> <span class="n">eth</span><span class="o">-&gt;</span><span class="n">h_proto</span><span class="p">;</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">h_proto</span> <span class="o">==</span> <span class="n">bpf_htons</span><span class="p">(</span><span class="n">ETH_P_IP</span><span class="p">))</span> <span class="p">{</span>
+            <span class="n">iph</span> <span class="o">=</span> <span class="n">data</span> <span class="o">+</span> <span class="n">nh_off</span><span class="p">;</span>
+
+            <span class="k">if</span> <span class="p">(</span><span class="n">iph</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">&gt;</span> <span class="n">data_end</span><span class="p">)</span> <span class="p">{</span>
+                    <span class="n">action</span> <span class="o">=</span> <span class="n">XDP_DROP</span><span class="p">;</span>
+                    <span class="k">goto</span> <span class="n">out</span><span class="p">;</span>
+            <span class="p">}</span>
+
+            <span class="k">if</span> <span class="p">(</span><span class="n">iph</span><span class="o">-&gt;</span><span class="n">ttl</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">)</span>
+                    <span class="k">goto</span> <span class="n">out</span><span class="p">;</span>
+
+            <span class="cm">/* Assignment 4: fill the fib_params structure for the AF_INET case */</span>
+            <span class="n">fib_params</span><span class="p">.</span><span class="n">family</span>       <span class="o">=</span> <span class="mi">2</span><span class="p">;</span>
+            <span class="n">fib_params</span><span class="p">.</span><span class="n">tos</span>          <span class="o">=</span> <span class="n">iph</span><span class="o">-&gt;</span><span class="n">tos</span><span class="p">;</span>
+            <span class="n">fib_params</span><span class="p">.</span><span class="n">l4_protocol</span>  <span class="o">=</span> <span class="n">iph</span><span class="o">-&gt;</span><span class="n">protocol</span><span class="p">;</span>
+            <span class="n">fib_params</span><span class="p">.</span><span class="n">sport</span>        <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+            <span class="n">fib_params</span><span class="p">.</span><span class="n">dport</span>        <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+            <span class="n">fib_params</span><span class="p">.</span><span class="n">tot_len</span>      <span class="o">=</span> <span class="n">bpf_ntohs</span><span class="p">(</span><span class="n">iph</span><span class="o">-&gt;</span><span class="n">tot_len</span><span class="p">);</span>
+            <span class="n">fib_params</span><span class="p">.</span><span class="n">ipv4_src</span>     <span class="o">=</span> <span class="n">iph</span><span class="o">-&gt;</span><span class="n">saddr</span><span class="p">;</span>
+            <span class="n">fib_params</span><span class="p">.</span><span class="n">ipv4_dst</span>     <span class="o">=</span> <span class="n">iph</span><span class="o">-&gt;</span><span class="n">daddr</span><span class="p">;</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">h_proto</span> <span class="o">==</span> <span class="n">bpf_htons</span><span class="p">(</span><span class="n">ETH_P_IPV6</span><span class="p">))</span> <span class="p">{</span>
+    						<span class="cm">/* These pointers can be used to assign structures instead of executing memcpy: */</span>
+                <span class="cm">/*struct in6_addr *src = (struct in6_addr *) fib_params.ipv6_src;
+</span><span class="cm">                struct in6_addr *dst = (struct in6_addr *) fib_params.ipv6_dst;*/</span>
+
+                <span class="n">ip6h</span> <span class="o">=</span> <span class="n">data</span> <span class="o">+</span> <span class="n">nh_off</span><span class="p">;</span>
+                <span class="k">if</span> <span class="p">(</span><span class="n">ip6h</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">&gt;</span> <span class="n">data_end</span><span class="p">)</span> <span class="p">{</span>
+                        <span class="n">action</span> <span class="o">=</span> <span class="n">XDP_DROP</span><span class="p">;</span>
+                        <span class="k">goto</span> <span class="n">out</span><span class="p">;</span>
+                <span class="p">}</span>
+
+                <span class="k">if</span> <span class="p">(</span><span class="n">ip6h</span><span class="o">-&gt;</span><span class="n">hop_limit</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">)</span>
+                        <span class="k">goto</span> <span class="n">out</span><span class="p">;</span>
+
+                <span class="cm">/* Assignment 4: fill the fib_params structure for the AF_INET6 case */</span>
+                <span class="cm">/*
+</span><span class="cm">                fib_params.family       = 10;
+</span><span class="cm">                fib_params.flowinfo     = *(__be32 *)ip6h &amp; IPV6_FLOWINFO_MASK;
+</span><span class="cm">                fib_params.l4_protocol  = ip6h-&gt;nexthdr;
+</span><span class="cm">                fib_params.sport        = 0;
+</span><span class="cm">                fib_params.dport        = 0;
+</span><span class="cm">                fib_params.tot_len      = bpf_ntohs(ip6h-&gt;payload_len);
+</span><span class="cm">                *src                    = ip6h-&gt;saddr;
+</span><span class="cm">                *dst                    = ip6h-&gt;daddr;
+</span><span class="cm">                */</span>
+        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+                <span class="k">goto</span> <span class="n">out</span><span class="p">;</span>
+        <span class="p">}</span>
+
+        <span class="n">fib_params</span><span class="p">.</span><span class="n">ifindex</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">-&gt;</span><span class="n">ingress_ifindex</span><span class="p">;</span>
+
+        <span class="n">rc</span> <span class="o">=</span> <span class="n">bpf_fib_lookup</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">fib_params</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">fib_params</span><span class="p">),</span> <span class="mi">0</span><span class="p">);</span>
+        <span class="k">switch</span> <span class="p">(</span><span class="n">rc</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">case</span> <span class="nl">BPF_FIB_LKUP_RET_SUCCESS</span><span class="p">:</span>         <span class="cm">/* lookup successful */</span>
+                <span class="k">if</span> <span class="p">(</span><span class="n">h_proto</span> <span class="o">==</span> <span class="n">bpf_htons</span><span class="p">(</span><span class="n">ETH_P_IP</span><span class="p">))</span>
+                        <span class="n">ip_decrease_ttl</span><span class="p">(</span><span class="n">iph</span><span class="p">);</span>
+                <span class="k">else</span> <span class="nf">if</span> <span class="p">(</span><span class="n">h_proto</span> <span class="o">==</span> <span class="n">bpf_htons</span><span class="p">(</span><span class="n">ETH_P_IPV6</span><span class="p">))</span>
+                        <span class="n">ip6h</span><span class="o">-&gt;</span><span class="n">hop_limit</span><span class="o">--</span><span class="p">;</span>
+                
+                <span class="n">memcpy</span><span class="p">(</span><span class="n">eth</span><span class="o">-&gt;</span><span class="n">h_dest</span><span class="p">,</span> <span class="n">fib_params</span><span class="p">.</span><span class="n">dmac</span><span class="p">,</span> <span class="n">ETH_ALEN</span><span class="p">);</span>
+                <span class="n">memcpy</span><span class="p">(</span><span class="n">eth</span><span class="o">-&gt;</span><span class="n">h_source</span><span class="p">,</span> <span class="n">fib_params</span><span class="p">.</span><span class="n">smac</span><span class="p">,</span> <span class="n">ETH_ALEN</span><span class="p">);</span>
+                <span class="n">action</span> <span class="o">=</span> <span class="n">bpf_redirect</span><span class="p">(</span><span class="n">fib_params</span><span class="p">.</span><span class="n">ifindex</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+                <span class="k">break</span><span class="p">;</span>
+        <span class="k">case</span> <span class="nl">BPF_FIB_LKUP_RET_BLACKHOLE</span><span class="p">:</span>    <span class="cm">/* dest is blackholed; can be dropped */</span>
+        <span class="k">case</span> <span class="nl">BPF_FIB_LKUP_RET_UNREACHABLE</span><span class="p">:</span>  <span class="cm">/* dest is unreachable; can be dropped */</span>
+        <span class="k">case</span> <span class="nl">BPF_FIB_LKUP_RET_PROHIBIT</span><span class="p">:</span>     <span class="cm">/* dest not allowed; can be dropped */</span>
+                <span class="n">action</span> <span class="o">=</span> <span class="n">XDP_DROP</span><span class="p">;</span>
+                <span class="k">break</span><span class="p">;</span>
+        <span class="k">case</span> <span class="nl">BPF_FIB_LKUP_RET_NOT_FWDED</span><span class="p">:</span>    <span class="cm">/* packet is not forwarded */</span>
+        <span class="k">case</span> <span class="nl">BPF_FIB_LKUP_RET_FWD_DISABLED</span><span class="p">:</span> <span class="cm">/* fwding is not enabled on ingress */</span>
+        <span class="k">case</span> <span class="nl">BPF_FIB_LKUP_RET_UNSUPP_LWT</span><span class="p">:</span>   <span class="cm">/* fwd requires encapsulation */</span>
+        <span class="k">case</span> <span class="nl">BPF_FIB_LKUP_RET_NO_NEIGH</span><span class="p">:</span>     <span class="cm">/* no neighbor entry for nh */</span>
+        <span class="k">case</span> <span class="nl">BPF_FIB_LKUP_RET_FRAG_NEEDED</span><span class="p">:</span>  <span class="cm">/* fragmentation required to fwd */</span>
+                <span class="cm">/* PASS */</span>
+                <span class="k">break</span><span class="p">;</span>
+        <span class="p">}</span>
+
+<span class="nl">out</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">xdp_stats_record_action</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">action</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="n">SEC</span><span class="p">(</span><span class="s">&#34;xdp_pass&#34;</span><span class="p">)</span>
+<span class="kt">int</span> <span class="n">xdp_pass_func</span><span class="p">(</span><span class="k">struct</span> <span class="n">xdp_md</span> <span class="o">*</span><span class="n">ctx</span><span class="p">)</span>
+<span class="p">{</span>
+        <span class="k">return</span> <span class="n">XDP_PASS</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></td></tr></table>
+</div>
+</div><p>这里ipv6的部分还有些问题，先不关注ipv6部分，编译：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-bash" data-lang="bash">clang -O2 -Wall -target bpf -c xdp_prog_kern.c -o xdp_prog_kern.o
+</code></pre></td></tr></table>
+</div>
+</div><p>在纯路由的方案基础上，将xdp程序attach到设备上，host侧的设备attach xdp_router sec，pod内的设备attach xdp_pass sec.</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-bash" data-lang="bash">ip link <span class="nb">set</span> dev veth1 xdpdrv obj xdp_prog_kern.o sec xdp_router
+
+ip link <span class="nb">set</span> dev veth1 xdpdrv obj xdp_prog_kern.o sec xdp_router
+
+ip netns <span class="nb">exec</span> net1 ip link <span class="nb">set</span> dev veth1-inner xdpdrv obj xdp_prog_kern.o sec xdp_pass
+
+ip netns <span class="nb">exec</span> net2 ip link <span class="nb">set</span> dev veth2-inner xdpdrv obj xdp_prog_kern.o sec xdp_pass
+</code></pre></td></tr></table>
+</div>
+</div><h2 id="ipvlan环境搭建">IPVlan环境搭建</h2>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-bash" data-lang="bash">ip netns add net3
+
+ip link add ipv3 link enp3s0 <span class="nb">type</span> ipvlan mode l2
+
+ip link <span class="nb">set</span> ipv3 netns net3
+
+ip netns <span class="nb">exec</span> net3 bash
+
+ip link <span class="nb">set</span> ipv3 up
+
+ip addr add 192.168.20.13/24 dev ipv3
+
+
+
+ip netns add net4
+
+ip link add ipv4 link enp3s0 <span class="nb">type</span> ipvlan mode l2
+
+ip link <span class="nb">set</span> ipv4 netns net4
+
+ip netns <span class="nb">exec</span> net4 bash
+
+ip link <span class="nb">set</span> ipv4 up
+
+ip addr add 192.168.20.14/24 dev ipv4
+</code></pre></td></tr></table>
+</div>
+</div>
+    </div>
+
+    <div class="post-copyright">
+  <p class="copyright-item">
+    <span class="item-title">Author</span>
+    <span class="item-content">bianze</span>
+  </p>
+  <p class="copyright-item">
+    <span class="item-title">LastMod</span>
+    <span class="item-content">
+        2020-07-21
+        
+    </span>
+  </p>
+  
+  
+</div>
+<footer class="post-footer">
+      <div class="post-tags">
+          <a href="/tags/xdp/">XDP</a>
+          <a href="/tags/ebpf/">EBPF</a>
+          </div>
+      <nav class="post-nav">
+        <a class="prev" href="/post/tcp_quick_delay_ack/">
+            <i class="iconfont icon-left"></i>
+            <span class="prev-text nav-default">TCP delay ACK超时动态调节分析</span>
+            <span class="prev-text nav-mobile">Prev</span>
+          </a>
+        <a class="next" href="/post/network_packetdrill_introduction/">
+            <span class="next-text nav-default">Packetdrill介绍和分析</span>
+            <span class="next-text nav-mobile">Next</span>
+            <i class="iconfont icon-right"></i>
+          </a>
+      </nav>
+    </footer>
+  </article>
+        </div>
+        
+
+  
+
+  
+
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="social-links">
+      <a href="mailto:your@email.com" class="iconfont icon-email" title="email"></a>
+      <a href="http://localhost:1313" class="iconfont icon-stack-overflow" title="stack-overflow"></a>
+      <a href="http://localhost:1313" class="iconfont icon-twitter" title="twitter"></a>
+      <a href="http://localhost:1313" class="iconfont icon-facebook" title="facebook"></a>
+      <a href="http://localhost:1313" class="iconfont icon-linkedin" title="linkedin"></a>
+      <a href="http://localhost:1313" class="iconfont icon-google" title="google"></a>
+      <a href="http://localhost:1313" class="iconfont icon-github" title="github"></a>
+      <a href="http://localhost:1313" class="iconfont icon-weibo" title="weibo"></a>
+      <a href="http://localhost:1313" class="iconfont icon-zhihu" title="zhihu"></a>
+      <a href="http://localhost:1313" class="iconfont icon-douban" title="douban"></a>
+      <a href="http://localhost:1313" class="iconfont icon-pocket" title="pocket"></a>
+      <a href="http://localhost:1313" class="iconfont icon-tumblr" title="tumblr"></a>
+      <a href="http://localhost:1313" class="iconfont icon-instagram" title="instagram"></a>
+      <a href="http://localhost:1313" class="iconfont icon-gitlab" title="gitlab"></a>
+      <a href="http://localhost:1313" class="iconfont icon-bilibili" title="bilibili"></a>
+  <a href="http://localhost:1313/index.xml" type="application/rss+xml" class="iconfont icon-rss" title="rss"></a>
+</div>
+
+<div class="copyright">
+  <span class="power-by">
+    Powered by <a class="hexo-link" href="https://gohugo.io">Hugo</a>
+  </span>
+  <span class="division">|</span>
+  <span class="theme-info">
+    Theme - 
+    <a class="theme-link" href="https://github.com/olOwOlo/hugo-theme-even">Even</a>
+  </span>
+
+  
+
+  <span class="copyright-year">
+    &copy; 
+    2017 - 
+    2020
+    <span class="heart">
+      <i class="iconfont icon-heart"></i>
+    </span>
+    <span class="author">bianze</span>
+  </span>
+</div>
+    </footer>
+
+    <div class="back-to-top" id="back-to-top">
+      <i class="iconfont icon-up"></i>
+    </div>
+  </div>
+  
+  <script src="https://cdn.jsdelivr.net/npm/jquery@3.2.1/dist/jquery.min.js" integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4=" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/slideout@1.0.1/dist/slideout.min.js" integrity="sha256-t+zJ/g8/KXIJMjSVQdnibt4dlaDxc9zXr/9oNPeWqdg=" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@3.1.20/dist/jquery.fancybox.min.js" integrity="sha256-XVLffZaxoWfGUEbdzuLi7pwaUJv1cecsQJQqGLe7axY=" crossorigin="anonymous"></script>
+
+
+
+<script type="text/javascript" src="/js/main.min.d7b7ada643c9c1a983026e177f141f7363b4640d619caf01d8831a6718cd44ea.js"></script>
+
+
+
+
+
+
+
+
+</body>
+</html>

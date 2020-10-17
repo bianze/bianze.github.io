@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>TCP on bianze - Welcome to bianze&#39;s blog</title>
+    <link>http://localhost:1313/categories/tcp/</link>
+    <description>Recent content in TCP on bianze - Welcome to bianze&#39;s blog</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en</language>
+    <lastBuildDate>Wed, 12 Aug 2020 19:51:46 +0800</lastBuildDate>
+    
+	<atom:link href="http://localhost:1313/categories/tcp/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>TCP delay ACK超时动态调节分析</title>
+      <link>http://localhost:1313/post/tcp_quick_delay_ack/</link>
+      <pubDate>Wed, 12 Aug 2020 19:51:46 +0800</pubDate>
+      
+      <guid>http://localhost:1313/post/tcp_quick_delay_ack/</guid>
+      <description>引言 之前有相关的patch将TCP_DELACK_MIN和TCP_DELACK_MAX通过sysctl方式export到proc文件系统，通</description>
+    </item>
+    
+    <item>
+      <title>TCP开启SACK后dup ACK未触发快速重传问题分析</title>
+      <link>http://localhost:1313/post/tcp_sack_dupack/</link>
+      <pubDate>Tue, 30 Jun 2020 11:12:42 +0800</pubDate>
+      
+      <guid>http://localhost:1313/post/tcp_sack_dupack/</guid>
+      <description>问题现象 在业务跑的过程中，发现tcp数据包的时延存在抖动的情况，内核版本为4.18-***，抓到如下所示的数据包： 可以看到从206开始的AC</description>
+    </item>
+    
+  </channel>
+</rss>

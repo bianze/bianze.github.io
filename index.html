@@ -45,7 +45,7 @@
 <meta property="og:description" content="Hugo theme even example site." />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="http://localhost:1313/" />
-<meta property="og:updated_time" content="2020-06-27T17:04:55+08:00" />
+<meta property="og:updated_time" content="2020-08-24T16:41:34+08:00" />
 <meta itemprop="name" content="bianze - Welcome to bianze&#39;s blog">
 <meta itemprop="description" content="Hugo theme even example site."><meta name="twitter:card" content="summary"/>
 <meta name="twitter:title" content="bianze - Welcome to bianze&#39;s blog"/>
@@ -112,19 +112,105 @@
           <section id="posts" class="posts">
     <article class="post">
   <header class="post-header">
-    <h1 class="post-title"><a class="post-link" href="/post/tools_macos_hugo_github_blog/">MacOS Hugo&#43;github pages搭建个人博客</a></h1>
+    <h1 class="post-title"><a class="post-link" href="/post/network_rps_analysis/">Linux RSS RPS RFS剖析</a></h1>
     <div class="post-meta">
-      <span class="post-time"> 2020-06-27 </span>
-      
+      <span class="post-time"> 2020-08-24 </span>
+      <div class="post-category">
+          <a href="/categories/%E5%86%85%E6%A0%B8%E5%8D%8F%E8%AE%AE%E6%A0%88/"> 内核协议栈 </a>
+          </div>
     </div>
   </header>
   
   <div class="post-content">
     <div class="post-summary">
-      前言 一直以来都希望能有个自己的博客，作为自己职业生涯的记录。网上搜索了下，发现最近比较通用的方式是通过hugo+github pages来实现
+      引言 在网络负载高的系统中，我们经常可以看到某个CPU的软中断消耗非常高，这时这个CPU容易跑满，性能达到瓶颈值。为优化系统性能，需均衡收包软
     </div>
     <div class="read-more">
-      <a href="/post/tools_macos_hugo_github_blog/" class="read-more-link">Read more...</a>
+      <a href="/post/network_rps_analysis/" class="read-more-link">Read more...</a>
+    </div>
+  </div>
+</article>
+
+    <article class="post">
+  <header class="post-header">
+    <h1 class="post-title"><a class="post-link" href="/post/tcp_quick_delay_ack/">TCP delay ACK超时动态调节分析</a></h1>
+    <div class="post-meta">
+      <span class="post-time"> 2020-08-12 </span>
+      <div class="post-category">
+          <a href="/categories/tcp/"> TCP </a>
+          </div>
+    </div>
+  </header>
+  
+  <div class="post-content">
+    <div class="post-summary">
+      引言 之前有相关的patch将TCP_DELACK_MIN和TCP_DELACK_MAX通过sysctl方式export到proc文件系统，通
+    </div>
+    <div class="read-more">
+      <a href="/post/tcp_quick_delay_ack/" class="read-more-link">Read more...</a>
+    </div>
+  </div>
+</article>
+
+    <article class="post">
+  <header class="post-header">
+    <h1 class="post-title"><a class="post-link" href="/post/ebpf_xdp_redirect/">容器网络数据面XDP redirect实践</a></h1>
+    <div class="post-meta">
+      <span class="post-time"> 2020-07-21 </span>
+      <div class="post-category">
+          <a href="/categories/ebpf/"> EBPF </a>
+          </div>
+    </div>
+  </header>
+  
+  <div class="post-content">
+    <div class="post-summary">
+      背景 内核网络栈处理比较厚重，社区为此引入了ebpf方案，在内核协议栈的多处处理路径上设了hook，以方便开发者attach ebpf程序byp
+    </div>
+    <div class="read-more">
+      <a href="/post/ebpf_xdp_redirect/" class="read-more-link">Read more...</a>
+    </div>
+  </div>
+</article>
+
+    <article class="post">
+  <header class="post-header">
+    <h1 class="post-title"><a class="post-link" href="/post/network_packetdrill_introduction/">Packetdrill介绍和分析</a></h1>
+    <div class="post-meta">
+      <span class="post-time"> 2020-07-03 </span>
+      <div class="post-category">
+          <a href="/categories/%E5%86%85%E6%A0%B8%E5%8D%8F%E8%AE%AE%E6%A0%88/"> 内核协议栈 </a>
+          </div>
+    </div>
+  </header>
+  
+  <div class="post-content">
+    <div class="post-summary">
+      简介 Packetdrill是Google开发并开源的一款协议栈测试工具，可以测试TCP/UDP/ICMP/IPV4/IPV6协议，目前支持L
+    </div>
+    <div class="read-more">
+      <a href="/post/network_packetdrill_introduction/" class="read-more-link">Read more...</a>
+    </div>
+  </div>
+</article>
+
+    <article class="post">
+  <header class="post-header">
+    <h1 class="post-title"><a class="post-link" href="/post/tcp_sack_dupack/">TCP开启SACK后dup ACK未触发快速重传问题分析</a></h1>
+    <div class="post-meta">
+      <span class="post-time"> 2020-06-30 </span>
+      <div class="post-category">
+          <a href="/categories/tcp/"> TCP </a>
+          </div>
+    </div>
+  </header>
+  
+  <div class="post-content">
+    <div class="post-summary">
+      问题现象 在业务跑的过程中，发现tcp数据包的时延存在抖动的情况，内核版本为4.18-***，抓到如下所示的数据包： 可以看到从206开始的AC
+    </div>
+    <div class="read-more">
+      <a href="/post/tcp_sack_dupack/" class="read-more-link">Read more...</a>
     </div>
   </div>
 </article>
@@ -133,7 +219,10 @@
   
   <nav class="pagination">
     
-    
+    <a class="next" href="/page/2/">
+        <span class="next-text">Next</span>
+        <i class="iconfont icon-right"></i>
+      </a>
   </nav>
         </div>
         

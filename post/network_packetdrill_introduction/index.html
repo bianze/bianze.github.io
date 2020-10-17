@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <title>Packetdrill介绍和分析 - bianze - Welcome to bianze&#39;s blog</title>
+  <meta name="renderer" content="webkit" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+<meta name="theme-color" content="#f8f5ec" />
+<meta name="msapplication-navbutton-color" content="#f8f5ec">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="#f8f5ec">
+
+
+<meta name="author" content="bianze" /><meta name="description" content="简介 Packetdrill是Google开发并开源的一款协议栈测试工具，可以测试TCP/UDP/ICMP/IPV4/IPV6协议，目前支持L" /><meta name="keywords" content="Hugo, theme, even" />
+
+
+
+
+
+
+<meta name="generator" content="Hugo 0.66.0 with theme even" />
+
+
+<link rel="canonical" href="http://localhost:1313/post/network_packetdrill_introduction/" />
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="manifest" href="/manifest.json">
+<link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5">
+
+
+
+<link href="/sass/main.min.8c3cbcb0324c2bb4875ceccba4007cbad4b4ac8377f33af9953c3e7684534a50.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@3.1.20/dist/jquery.fancybox.min.css" integrity="sha256-7TyXnr2YU040zfSP+rEcz29ggW4j56/ujTPwjMzyqFY=" crossorigin="anonymous">
+
+
+<meta property="og:title" content="Packetdrill介绍和分析" />
+<meta property="og:description" content="简介 Packetdrill是Google开发并开源的一款协议栈测试工具，可以测试TCP/UDP/ICMP/IPV4/IPV6协议，目前支持L" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="http://localhost:1313/post/network_packetdrill_introduction/" />
+<meta property="article:published_time" content="2020-07-03T11:49:57+08:00" />
+<meta property="article:modified_time" content="2020-07-03T11:49:57+08:00" />
+<meta itemprop="name" content="Packetdrill介绍和分析">
+<meta itemprop="description" content="简介 Packetdrill是Google开发并开源的一款协议栈测试工具，可以测试TCP/UDP/ICMP/IPV4/IPV6协议，目前支持L">
+<meta itemprop="datePublished" content="2020-07-03T11:49:57&#43;08:00" />
+<meta itemprop="dateModified" content="2020-07-03T11:49:57&#43;08:00" />
+<meta itemprop="wordCount" content="2307">
+
+
+
+<meta itemprop="keywords" content="" /><meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="Packetdrill介绍和分析"/>
+<meta name="twitter:description" content="简介 Packetdrill是Google开发并开源的一款协议栈测试工具，可以测试TCP/UDP/ICMP/IPV4/IPV6协议，目前支持L"/>
+
+<!--[if lte IE 9]>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/classlist/1.1.20170427/classList.min.js"></script>
+<![endif]-->
+
+<!--[if lt IE 9]>
+  <script src="https://cdn.jsdelivr.net/npm/html5shiv@3.7.3/dist/html5shiv.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/respond.js@1.4.2/dest/respond.min.js"></script>
+<![endif]-->
+
+</head>
+<body>
+  <div id="mobile-navbar" class="mobile-navbar">
+  <div class="mobile-header-logo">
+    <a href="/" class="logo">昪泽</a>
+  </div>
+  <div class="mobile-navbar-icon">
+    <span></span>
+    <span></span>
+    <span></span>
+  </div>
+</div>
+<nav id="mobile-menu" class="mobile-menu slideout-menu">
+  <ul class="mobile-menu-list">
+    <a href="/">
+        <li class="mobile-menu-item">Home</li>
+      </a><a href="/post/">
+        <li class="mobile-menu-item">Archives</li>
+      </a><a href="/tags/">
+        <li class="mobile-menu-item">Tags</li>
+      </a><a href="/categories/">
+        <li class="mobile-menu-item">Categories</li>
+      </a>
+  </ul>
+</nav>
+  <div class="container" id="mobile-panel">
+    <header id="header" class="header">
+        <div class="logo-wrapper">
+  <a href="/" class="logo">昪泽</a>
+</div>
+
+<nav class="site-navbar">
+  <ul id="menu" class="menu">
+    <li class="menu-item">
+        <a class="menu-item-link" href="/">Home</a>
+      </li><li class="menu-item">
+        <a class="menu-item-link" href="/post/">Archives</a>
+      </li><li class="menu-item">
+        <a class="menu-item-link" href="/tags/">Tags</a>
+      </li><li class="menu-item">
+        <a class="menu-item-link" href="/categories/">Categories</a>
+      </li>
+  </ul>
+</nav>
+    </header>
+
+    <main id="main" class="main">
+      <div class="content-wrapper">
+        <div id="content" class="content">
+          <article class="post">
+    
+    <header class="post-header">
+      <h1 class="post-title">Packetdrill介绍和分析</h1>
+
+      <div class="post-meta">
+        <span class="post-time"> 2020-07-03 </span>
+        <div class="post-category">
+            <a href="/categories/%E5%86%85%E6%A0%B8%E5%8D%8F%E8%AE%AE%E6%A0%88/"> 内核协议栈 </a>
+            </div>
+        
+      </div>
+    </header>
+
+    <div class="post-toc" id="post-toc">
+  <h2 class="post-toc-title">Contents</h2>
+  <div class="post-toc-content always-active">
+    <nav id="TableOfContents">
+  <ul>
+    <li><a href="#简介">简介</a></li>
+    <li><a href="#安装">安装</a></li>
+    <li><a href="#原理">原理</a></li>
+    <li><a href="#脚本语法">脚本语法</a></li>
+  </ul>
+</nav>
+  </div>
+</div>
+    <div class="post-content">
+      <h2 id="简介">简介</h2>
+<p>Packetdrill是Google开发并开源的一款协议栈测试工具，可以测试TCP/UDP/ICMP/IPV4/IPV6协议，目前支持Linux，FreeBSD，OpenBSD和NetBSD多个平台。Packetdrill支持开发人员使用脚本化的语言编写测试用例，大大简化了开发的复杂度，可以非常便捷地构造测试用例测试协议功能。</p>
+<h2 id="安装">安装</h2>
+<p>Packetdrill编译和运行依赖gcc, python, flex, bison，flex用于编译lex文件，bison用于编译yacc文件。</p>
+<p>从github拉取源码</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-fallback" data-lang="fallback">git clone https://github.com/google/packetdrill.git
+</code></pre></td></tr></table>
+</div>
+</div><p>编译，编译默认就是静态链接的，当时我由于是新装的机器上编译的，有很多库没有，特别是当时-lrt, -ldl链接找不到搞了很久，原因是没有正确安装glibc-staic库才会缺这两个库，一开始报缺libc.a时我是直接将libc_nonshared.a拷贝了一份，然后再去找librt.a和libdl.a搞了好久都找不到，后来发现这两个库就包含glibc-static库内，引以为戒</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-fallback" data-lang="fallback">cd packetdrill/gtests/net/packetdrill
+
+./configure
+
+make
+</code></pre></td></tr></table>
+</div>
+</div><p>编译好后在当前目录下就能看到packetdrill的二进制，然后放到bin目录下就可以不用指定全路径了</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-fallback" data-lang="fallback">sudo cp packetdrill /usr/bin/
+</code></pre></td></tr></table>
+</div>
+</div><p>尝试运行下脚本试试，需要root权限</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-fallback" data-lang="fallback">sudo packetdrill tests/linux/fast_retransmit/fr-4pkt-sack-linux.pkt
+</code></pre></td></tr></table>
+</div>
+</div><p>如果可以正常退出，说明已经执行成功了，如果卡住说明可能某些地方配置不对，比如防火墙开着把一些包直接丢了这样，可以加-v参数观察测试脚本跑到哪一步出错了，或者可以开启抓包看看，抓包的话packetdrill默认监听的是8080端口，可以使用如下命令抓包看看</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-fallback" data-lang="fallback">sudo tcpdump -lni any port 8080
+</code></pre></td></tr></table>
+</div>
+</div><h2 id="原理">原理</h2>
+<p>Packetdrill测试用例的运行有两种方式：第一种是单机运行，就像上述步骤二一样；第二种是跨机器运行，在一台机器上运行server，在另一台机器上运行client。工作原理其实是类似的，我们先介绍单机工作的原理，后面简要补充下跨节点工作的不同点。单机工作的整体框图如下：</p>
+<p><img src="/pic/packetdrill_framework.png" alt=""></p>
+<p>packetdrill运行时，首先读取脚本文件，通过脚本解析器将脚本中的描述抽象成packetdrill内部的数据结构，比如event, option, time等，一旦脚本文件有语法错误，在脚本解析时便会报错。脚本解析成功后，进入脚本执行环节，脚本执行环节会去查询一个个的事件，然后进入这些事件的处理流程。packetdrill支持四种形式的事件类型：Command，Code，Packet和Syscall。Command通过``包含起来，Code通过%{ }%包含起来，Packet通过&lt;或者&gt;来表示，Syscall就是直接的posix接口。</p>
+<p>Command事件在运行时直接使用system()函数通过bash执行命令。Code事件主要用于通过getsockopt获取协议栈的信息，然后做些断言，在脚本运行时会先通过getsockopt获取内核中的协议栈信息，然后再把结果输出到一个临时python文件，然后调用python执行该文件。Command事件和Code事件都没有remote端和local端的概念，直接在运行过程中执行到时跑出结果。</p>
+<p>下面我们重点来介绍Syscall事件和Packet事件。脚本运行时首先会去创建tun设备，为这个tun设备设置ip，mac地址并配置好路由策略，让发往tun ip的数据包走tun设备而不走lo口。Syscall事件的执行侧我们称之为local端，通过系统调用从用户态陷入内核态，进入内核态之后由内核协议栈来控制收发包的流程。Packet事件的执行侧我们称之为remote端，remote端通过创建AF_PACKET协议族的套接字直接向tun设备注入裸数据包，通过AF_PACKET协议族的套接字和bpf程序抓取从源端发送过来的数据包，并与脚本中期望收到的数据包进行比对。经常不同版本的内核或者系统配置不一样，会导致期望收到的包与实际收到的包有些差异，如果winscale不一致等，这种需要根据实际情况修改脚本文件。</p>
+<p>对于跨节点运行的情况，remote端跑在server侧，local端跑在client侧，tun设备换成server侧实际的物理网卡，local端这边路由到物理网卡上，其实也不尽然是物理网卡，比如一个物理机上起两个虚机也是可以的，这里边物理网卡的概念就换成虚机的出口网卡。</p>
+<h2 id="脚本语法">脚本语法</h2>
+<p>Packetdrill的document实在是太简单了点，网上也没有什么很好的资料。对于使用者而言，大家更关注的应该是如何快速有效地编写出能满足自己需求的脚本文件，因此有必要将脚本语法进行一些介绍，方便大家后续直接上手写脚本文件。</p>
+<p>如果能理解脚本是如何解析的，那么编写脚本也就不是什么难事了，因此，有兴趣的童鞋还是可以看看源码，了解下脚本中的规则具体是如何解析的，我个人也是对于一些有疑问的地方直接在源码中去看如何解析，这样反过来写就会容易很多。packetdrill的脚本解析结合了lex和yacc，简单地说就是由lex做一些简单的模式匹配，然后返回给yacc，yacc这边调用一些C程序创建好对应的数据结构，最终完成一个脚本解析的过程。lex文件packetdrill源码中对应的是lexer.l，yacc文件对应的是parser.y 。之前没接触过的可以简单找个入门介绍，稍微看懂下语法规则就行，没必要细挖，推荐链接：https://www.ibm.com/developerworks/cn/linux/sdk/lex/index.html 。</p>
+<p>涉及的语法主要有：选项，事件，时间，tcp，udp，icmp，ipv4，ipv6，tcp选项，epoll事件等，由于涉及得比较细，后续有空再逐一补充介绍。</p>
+
+    </div>
+
+    <div class="post-copyright">
+  <p class="copyright-item">
+    <span class="item-title">Author</span>
+    <span class="item-content">bianze</span>
+  </p>
+  <p class="copyright-item">
+    <span class="item-title">LastMod</span>
+    <span class="item-content">
+        2020-07-03
+        
+    </span>
+  </p>
+  
+  
+</div>
+<footer class="post-footer">
+      
+      <nav class="post-nav">
+        <a class="prev" href="/post/ebpf_xdp_redirect/">
+            <i class="iconfont icon-left"></i>
+            <span class="prev-text nav-default">容器网络数据面XDP redirect实践</span>
+            <span class="prev-text nav-mobile">Prev</span>
+          </a>
+        <a class="next" href="/post/tcp_sack_dupack/">
+            <span class="next-text nav-default">TCP开启SACK后dup ACK未触发快速重传问题分析</span>
+            <span class="next-text nav-mobile">Next</span>
+            <i class="iconfont icon-right"></i>
+          </a>
+      </nav>
+    </footer>
+  </article>
+        </div>
+        
+
+  
+
+  
+
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="social-links">
+      <a href="mailto:your@email.com" class="iconfont icon-email" title="email"></a>
+      <a href="http://localhost:1313" class="iconfont icon-stack-overflow" title="stack-overflow"></a>
+      <a href="http://localhost:1313" class="iconfont icon-twitter" title="twitter"></a>
+      <a href="http://localhost:1313" class="iconfont icon-facebook" title="facebook"></a>
+      <a href="http://localhost:1313" class="iconfont icon-linkedin" title="linkedin"></a>
+      <a href="http://localhost:1313" class="iconfont icon-google" title="google"></a>
+      <a href="http://localhost:1313" class="iconfont icon-github" title="github"></a>
+      <a href="http://localhost:1313" class="iconfont icon-weibo" title="weibo"></a>
+      <a href="http://localhost:1313" class="iconfont icon-zhihu" title="zhihu"></a>
+      <a href="http://localhost:1313" class="iconfont icon-douban" title="douban"></a>
+      <a href="http://localhost:1313" class="iconfont icon-pocket" title="pocket"></a>
+      <a href="http://localhost:1313" class="iconfont icon-tumblr" title="tumblr"></a>
+      <a href="http://localhost:1313" class="iconfont icon-instagram" title="instagram"></a>
+      <a href="http://localhost:1313" class="iconfont icon-gitlab" title="gitlab"></a>
+      <a href="http://localhost:1313" class="iconfont icon-bilibili" title="bilibili"></a>
+  <a href="http://localhost:1313/index.xml" type="application/rss+xml" class="iconfont icon-rss" title="rss"></a>
+</div>
+
+<div class="copyright">
+  <span class="power-by">
+    Powered by <a class="hexo-link" href="https://gohugo.io">Hugo</a>
+  </span>
+  <span class="division">|</span>
+  <span class="theme-info">
+    Theme - 
+    <a class="theme-link" href="https://github.com/olOwOlo/hugo-theme-even">Even</a>
+  </span>
+
+  
+
+  <span class="copyright-year">
+    &copy; 
+    2017 - 
+    2020
+    <span class="heart">
+      <i class="iconfont icon-heart"></i>
+    </span>
+    <span class="author">bianze</span>
+  </span>
+</div>
+    </footer>
+
+    <div class="back-to-top" id="back-to-top">
+      <i class="iconfont icon-up"></i>
+    </div>
+  </div>
+  
+  <script src="https://cdn.jsdelivr.net/npm/jquery@3.2.1/dist/jquery.min.js" integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4=" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/slideout@1.0.1/dist/slideout.min.js" integrity="sha256-t+zJ/g8/KXIJMjSVQdnibt4dlaDxc9zXr/9oNPeWqdg=" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@3.1.20/dist/jquery.fancybox.min.js" integrity="sha256-XVLffZaxoWfGUEbdzuLi7pwaUJv1cecsQJQqGLe7axY=" crossorigin="anonymous"></script>
+
+
+
+<script type="text/javascript" src="/js/main.min.d7b7ada643c9c1a983026e177f141f7363b4640d619caf01d8831a6718cd44ea.js"></script>
+
+
+
+
+
+
+
+
+</body>
+</html>

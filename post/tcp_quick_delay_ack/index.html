@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <title>TCP delay ACK超时动态调节分析 - bianze - Welcome to bianze&#39;s blog</title>
+  <meta name="renderer" content="webkit" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+<meta name="theme-color" content="#f8f5ec" />
+<meta name="msapplication-navbutton-color" content="#f8f5ec">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="#f8f5ec">
+
+
+<meta name="author" content="bianze" /><meta name="description" content="引言 之前有相关的patch将TCP_DELACK_MIN和TCP_DELACK_MAX通过sysctl方式export到proc文件系统，通" /><meta name="keywords" content="Hugo, theme, even" />
+
+
+
+
+
+
+<meta name="generator" content="Hugo 0.66.0 with theme even" />
+
+
+<link rel="canonical" href="http://localhost:1313/post/tcp_quick_delay_ack/" />
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="manifest" href="/manifest.json">
+<link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5">
+
+
+
+<link href="/sass/main.min.8c3cbcb0324c2bb4875ceccba4007cbad4b4ac8377f33af9953c3e7684534a50.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@3.1.20/dist/jquery.fancybox.min.css" integrity="sha256-7TyXnr2YU040zfSP+rEcz29ggW4j56/ujTPwjMzyqFY=" crossorigin="anonymous">
+
+
+<meta property="og:title" content="TCP delay ACK超时动态调节分析" />
+<meta property="og:description" content="引言 之前有相关的patch将TCP_DELACK_MIN和TCP_DELACK_MAX通过sysctl方式export到proc文件系统，通" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="http://localhost:1313/post/tcp_quick_delay_ack/" />
+<meta property="article:published_time" content="2020-08-12T19:51:46+08:00" />
+<meta property="article:modified_time" content="2020-08-12T19:51:46+08:00" />
+<meta itemprop="name" content="TCP delay ACK超时动态调节分析">
+<meta itemprop="description" content="引言 之前有相关的patch将TCP_DELACK_MIN和TCP_DELACK_MAX通过sysctl方式export到proc文件系统，通">
+<meta itemprop="datePublished" content="2020-08-12T19:51:46&#43;08:00" />
+<meta itemprop="dateModified" content="2020-08-12T19:51:46&#43;08:00" />
+<meta itemprop="wordCount" content="4827">
+
+
+
+<meta itemprop="keywords" content="TCP," /><meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="TCP delay ACK超时动态调节分析"/>
+<meta name="twitter:description" content="引言 之前有相关的patch将TCP_DELACK_MIN和TCP_DELACK_MAX通过sysctl方式export到proc文件系统，通"/>
+
+<!--[if lte IE 9]>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/classlist/1.1.20170427/classList.min.js"></script>
+<![endif]-->
+
+<!--[if lt IE 9]>
+  <script src="https://cdn.jsdelivr.net/npm/html5shiv@3.7.3/dist/html5shiv.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/respond.js@1.4.2/dest/respond.min.js"></script>
+<![endif]-->
+
+</head>
+<body>
+  <div id="mobile-navbar" class="mobile-navbar">
+  <div class="mobile-header-logo">
+    <a href="/" class="logo">昪泽</a>
+  </div>
+  <div class="mobile-navbar-icon">
+    <span></span>
+    <span></span>
+    <span></span>
+  </div>
+</div>
+<nav id="mobile-menu" class="mobile-menu slideout-menu">
+  <ul class="mobile-menu-list">
+    <a href="/">
+        <li class="mobile-menu-item">Home</li>
+      </a><a href="/post/">
+        <li class="mobile-menu-item">Archives</li>
+      </a><a href="/tags/">
+        <li class="mobile-menu-item">Tags</li>
+      </a><a href="/categories/">
+        <li class="mobile-menu-item">Categories</li>
+      </a>
+  </ul>
+</nav>
+  <div class="container" id="mobile-panel">
+    <header id="header" class="header">
+        <div class="logo-wrapper">
+  <a href="/" class="logo">昪泽</a>
+</div>
+
+<nav class="site-navbar">
+  <ul id="menu" class="menu">
+    <li class="menu-item">
+        <a class="menu-item-link" href="/">Home</a>
+      </li><li class="menu-item">
+        <a class="menu-item-link" href="/post/">Archives</a>
+      </li><li class="menu-item">
+        <a class="menu-item-link" href="/tags/">Tags</a>
+      </li><li class="menu-item">
+        <a class="menu-item-link" href="/categories/">Categories</a>
+      </li>
+  </ul>
+</nav>
+    </header>
+
+    <main id="main" class="main">
+      <div class="content-wrapper">
+        <div id="content" class="content">
+          <article class="post">
+    
+    <header class="post-header">
+      <h1 class="post-title">TCP delay ACK超时动态调节分析</h1>
+
+      <div class="post-meta">
+        <span class="post-time"> 2020-08-12 </span>
+        <div class="post-category">
+            <a href="/categories/tcp/"> TCP </a>
+            </div>
+        
+      </div>
+    </header>
+
+    <div class="post-toc" id="post-toc">
+  <h2 class="post-toc-title">Contents</h2>
+  <div class="post-toc-content always-active">
+    <nav id="TableOfContents">
+  <ul>
+    <li><a href="#引言">引言</a></li>
+    <li><a href="#tcp-ack机制简介">TCP ACK机制简介</a></li>
+    <li><a href="#源码分析">源码分析</a></li>
+    <li><a href="#结论与解法">结论与解法</a></li>
+  </ul>
+</nav>
+  </div>
+</div>
+    <div class="post-content">
+      <h2 id="引言">引言</h2>
+<p>之前有相关的patch将TCP_DELACK_MIN和TCP_DELACK_MAX通过sysctl方式export到proc文件系统，通过sysctl命令动态地修改这个值，而且在我们的场景中也偶尔会看到delay ack回复慢的情况造成业务抖动，那么我们就来分析看看这个patch是否能解决我们的问题。patch链接如下：</p>
+<p><a href="https://patchwork.ozlabs.org/project/netdev/patch/1319756841-2051-1-git-send-email-dbaluta@ixiacom.com/">https://patchwork.ozlabs.org/project/netdev/patch/1319756841-2051-1-git-send-email-dbaluta@ixiacom.com/</a></p>
+<p>要回答这个问题，那么我们就要先从代码层面分析什么场景下tcp的delay ack会超时？只有了解了触发这个问题的场景，我们再来看在我们的场景中是否有必要对这个超时时间进行调控，进而再分析如何调控这个超时时间才能达到我们想要的效果。</p>
+<h2 id="tcp-ack机制简介">TCP ACK机制简介</h2>
+<p>在具体分析之前我们有必要了解什么是quick ack, 什么是delay ack。</p>
+<p>当TCP连接刚建立的时候，拥塞控制处于慢启动状态，需要根据接收端回复的ACK来增加拥塞窗口，因此这个时候ACK的回复快慢对慢启动的时间就会造成很大的影响，在这个阶段就有必要对每个收到的报文进行快速的ACK确认，当然quick ack状态不仅在这一个时候会触发，在其它的一些条件也会进入快速进行ack确认的情况，具体的下面可以根据源码进行解读。</p>
+<p>如果持续的进行每收到一个包就回复一个ACK的话会增加ACK的数量，这样占用一定的CPU和网络资源，因此可以适当延缓ACK的回复，当接收端也有数据发送的时候，就可以考虑将数据和ACK一起发送到发送端，这样的话可以节省资源。这种发送端发送一些数据到接收端，接收端同时也有数据发送的场景叫乒乓场景，进入这种状态后会将icsk-&gt;icsk_ack.pingpong置为1。当然延迟ACK的回复也不是说只有接收端也有数据时才会发送，还是有一些其它条件可以触发的。当没有任何条件出发delay ack回复时，delay ack就会等到设定的超时时间后触发一次ack回复。我们今天要分析的就是在什么情况下delay ack会进入到超时发送的流程，并且分析这个超时时间是否可以进行合理调控后让它能够更加快速的回复。</p>
+<p>一句话总结就是quick ack机制为了更好的进行拥塞控制，delay ack机制为了更好地利用网络资源。</p>
+<h2 id="源码分析">源码分析</h2>
+<p>首先我们通过源码来分析quick ACK和delay ACK的触发场景，见函数__tcp_ack_snd_check()</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-c" data-lang="c"><span class="k">static</span> <span class="kt">void</span> <span class="nf">__tcp_ack_snd_check</span><span class="p">(</span><span class="k">struct</span> <span class="n">sock</span> <span class="o">*</span><span class="n">sk</span><span class="p">,</span> <span class="kt">int</span> <span class="n">ofo_possible</span><span class="p">)</span>
+<span class="p">{</span>
+        <span class="k">struct</span> <span class="n">tcp_sock</span> <span class="o">*</span><span class="n">tp</span> <span class="o">=</span> <span class="n">tcp_sk</span><span class="p">(</span><span class="n">sk</span><span class="p">);</span>
+        <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">rtt</span><span class="p">,</span> <span class="n">delay</span><span class="p">;</span>
+
+            <span class="cm">/* More than one full frame received... */</span> <span class="c1">//超过一个mss的数据在接收缓冲区时，注意是大于号没有等于
+</span><span class="c1"></span>        <span class="k">if</span> <span class="p">(((</span><span class="n">tp</span><span class="o">-&gt;</span><span class="n">rcv_nxt</span> <span class="o">-</span> <span class="n">tp</span><span class="o">-&gt;</span><span class="n">rcv_wup</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">inet_csk</span><span class="p">(</span><span class="n">sk</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">icsk_ack</span><span class="p">.</span><span class="n">rcv_mss</span> <span class="o">&amp;&amp;</span>
+             <span class="cm">/* ... and right edge of window advances far enough.
+</span><span class="cm">              * (tcp_recvmsg() will send ACK otherwise).
+</span><span class="cm">              * If application uses SO_RCVLOWAT, we want send ack now if
+</span><span class="cm">              * we have not received enough bytes to satisfy the condition.
+</span><span class="cm">              */</span>
+            <span class="p">(</span><span class="n">tp</span><span class="o">-&gt;</span><span class="n">rcv_nxt</span> <span class="o">-</span> <span class="n">tp</span><span class="o">-&gt;</span><span class="n">copied_seq</span> <span class="o">&lt;</span> <span class="n">sk</span><span class="o">-&gt;</span><span class="n">sk_rcvlowat</span> <span class="o">||</span> <span class="c1">//应用设置了接收水线，且这个时候可以往用户态拷贝的数据小于接收水线，意味着收端希望快速收到更多的数据，这样才能唤醒接收端用户态程序的收包
+</span><span class="c1"></span>             <span class="n">__tcp_select_window</span><span class="p">(</span><span class="n">sk</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">tp</span><span class="o">-&gt;</span><span class="n">rcv_wnd</span><span class="p">))</span> <span class="o">||</span> <span class="c1">//接收到这个数据包后发现接收窗口扩大了，意味着现在马上能接收更多的数据了，希望发送端可以加快发送
+</span><span class="c1"></span>            <span class="cm">/* We ACK each frame or... */</span> <span class="c1">//处于快速确认模式，就是说的
+</span><span class="c1"></span>            <span class="n">tcp_in_quickack_mode</span><span class="p">(</span><span class="n">sk</span><span class="p">)</span> <span class="o">||</span>
+            <span class="cm">/* Protocol state mandates a one-time immediate ACK */</span> <span class="c1">//之前有快速ack需要发送的事件未处理，具体原因另说
+</span><span class="c1"></span>            <span class="n">inet_csk</span><span class="p">(</span><span class="n">sk</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">icsk_ack</span><span class="p">.</span><span class="n">pending</span> <span class="o">&amp;</span> <span class="n">ICSK_ACK_NOW</span><span class="p">)</span> <span class="p">{</span>
+
+<span class="nl">send_now</span><span class="p">:</span>
+                <span class="n">tcp_send_ack</span><span class="p">(</span><span class="n">sk</span><span class="p">);</span> <span class="c1">//立即回复ack,如果进去展开看的话回复失败的话，设置的超时回复时间是当前时间+TCP_DEKLACK_MAX，当然回复失败的情况只有在没内存，分配不出skb时，一般很少见
+</span><span class="c1"></span>                <span class="k">return</span><span class="p">;</span>
+        <span class="p">}</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">ofo_possible</span> <span class="o">||</span> <span class="n">RB_EMPTY_ROOT</span><span class="p">(</span><span class="o">&amp;</span><span class="n">tp</span><span class="o">-&gt;</span><span class="n">out_of_order_queue</span><span class="p">))</span> <span class="p">{</span><span class="c1">//如果没有乱序的情况，进入delay ack确认，如果有乱序的话会通过后面再去看是否开启SACK的情况进行处理，当前不展开分析
+</span><span class="c1"></span>                <span class="n">tcp_send_delayed_ack</span><span class="p">(</span><span class="n">sk</span><span class="p">);</span>
+                <span class="k">return</span><span class="p">;</span>
+        <span class="p">}</span>
+<span class="p">......</span>
+</code></pre></td></tr></table>
+</div>
+</div><p>再来具体看下什么情况下处于quick ack模式</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-c" data-lang="c"><span class="cm">/* Send ACKs quickly, if &#34;quick&#34; count is not exhausted
+</span><span class="cm"> * and the session is not interactive.
+</span><span class="cm"> */</span>
+
+<span class="k">static</span> <span class="kt">bool</span> <span class="nf">tcp_in_quickack_mode</span><span class="p">(</span><span class="k">struct</span> <span class="n">sock</span> <span class="o">*</span><span class="n">sk</span><span class="p">)</span>
+<span class="p">{</span>
+        <span class="k">const</span> <span class="k">struct</span> <span class="n">inet_connection_sock</span> <span class="o">*</span><span class="n">icsk</span> <span class="o">=</span> <span class="n">inet_csk</span><span class="p">(</span><span class="n">sk</span><span class="p">);</span>
+        <span class="k">const</span> <span class="k">struct</span> <span class="n">dst_entry</span> <span class="o">*</span><span class="n">dst</span> <span class="o">=</span> <span class="n">__sk_dst_get</span><span class="p">(</span><span class="n">sk</span><span class="p">);</span>
+
+        <span class="k">return</span> <span class="p">(</span><span class="n">dst</span> <span class="o">&amp;&amp;</span> <span class="n">dst_metric</span><span class="p">(</span><span class="n">dst</span><span class="p">,</span> <span class="n">RTAX_QUICKACK</span><span class="p">))</span> <span class="o">||</span>
+                <span class="p">(</span><span class="n">icsk</span><span class="o">-&gt;</span><span class="n">icsk_ack</span><span class="p">.</span><span class="n">quick</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="n">icsk</span><span class="o">-&gt;</span><span class="n">icsk_ack</span><span class="p">.</span><span class="n">pingpong</span><span class="p">);</span> <span class="c1">//quick计数还没有耗尽并且不处于乒乓模式，也就是处于乒乓模式的话就不会进行快速确认；quick计数在第一个数据包收到时会设定一个初始值，后续交互到一定时候会设置成0
+</span><span class="c1"></span><span class="p">}</span>
+</code></pre></td></tr></table>
+</div>
+</div><p>我们重点来看下什么时候设置的乒乓模式</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-c" data-lang="c"><span class="cm">/* Congestion state accounting after a packet has been sent. */</span>
+<span class="k">static</span> <span class="kt">void</span> <span class="nf">tcp_event_data_sent</span><span class="p">(</span><span class="k">struct</span> <span class="n">tcp_sock</span> <span class="o">*</span><span class="n">tp</span><span class="p">,</span>
+                                <span class="k">struct</span> <span class="n">sock</span> <span class="o">*</span><span class="n">sk</span><span class="p">)</span>
+<span class="p">{</span>
+        <span class="k">struct</span> <span class="n">inet_connection_sock</span> <span class="o">*</span><span class="n">icsk</span> <span class="o">=</span> <span class="n">inet_csk</span><span class="p">(</span><span class="n">sk</span><span class="p">);</span>
+        <span class="k">const</span> <span class="n">u32</span> <span class="n">now</span> <span class="o">=</span> <span class="n">tcp_jiffies32</span><span class="p">;</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="n">tcp_packets_in_flight</span><span class="p">(</span><span class="n">tp</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
+                <span class="n">tcp_ca_event</span><span class="p">(</span><span class="n">sk</span><span class="p">,</span> <span class="n">CA_EVENT_TX_START</span><span class="p">);</span>
+    
+        <span class="n">tp</span><span class="o">-&gt;</span><span class="n">lsndtime</span> <span class="o">=</span> <span class="n">now</span><span class="p">;</span>
+    
+        <span class="cm">/* If it is a reply for ato after last received
+</span><span class="cm">         * packet, enter pingpong mode.
+</span><span class="cm">         */</span>
+        <span class="k">if</span> <span class="p">((</span><span class="n">u32</span><span class="p">)(</span><span class="n">now</span> <span class="o">-</span> <span class="n">icsk</span><span class="o">-&gt;</span><span class="n">icsk_ack</span><span class="p">.</span><span class="n">lrcvtime</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">icsk</span><span class="o">-&gt;</span><span class="n">icsk_ack</span><span class="p">.</span><span class="n">ato</span><span class="p">)</span><span class="c1">//上面英文注释说明得挺清楚了，如果发送的这个包的时间跟刚才接收到数据包的时间间隔小于ato的话就判定进入乒乓模式，稍后我们再具体分析这个ato是怎么计算的，这个值也跟delay ack的超时有很大的关联
+</span><span class="c1"></span>                <span class="n">icsk</span><span class="o">-&gt;</span><span class="n">icsk_ack</span><span class="p">.</span><span class="n">pingpong</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+
+<span class="p">}</span>
+</code></pre></td></tr></table>
+</div>
+</div><p>先总结下上面的分析就是当发送端发了一些数据，接收端马上又回复数据时就会进入乒乓模式，进入乒乓模式后就会进入delay ack确认的流程，那么我们就来看下delay ack的流程又是怎么样的</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span><span class="lnt">39
+</span><span class="lnt">40
+</span><span class="lnt">41
+</span><span class="lnt">42
+</span><span class="lnt">43
+</span><span class="lnt">44
+</span><span class="lnt">45
+</span><span class="lnt">46
+</span><span class="lnt">47
+</span><span class="lnt">48
+</span><span class="lnt">49
+</span><span class="lnt">50
+</span><span class="lnt">51
+</span><span class="lnt">52
+</span><span class="lnt">53
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-c" data-lang="c"><span class="kt">void</span> <span class="nf">tcp_send_delayed_ack</span><span class="p">(</span><span class="k">struct</span> <span class="n">sock</span> <span class="o">*</span><span class="n">sk</span><span class="p">)</span>
+<span class="p">{</span>
+        <span class="k">struct</span> <span class="n">inet_connection_sock</span> <span class="o">*</span><span class="n">icsk</span> <span class="o">=</span> <span class="n">inet_csk</span><span class="p">(</span><span class="n">sk</span><span class="p">);</span>
+        <span class="kt">int</span> <span class="n">ato</span> <span class="o">=</span> <span class="n">icsk</span><span class="o">-&gt;</span><span class="n">icsk_ack</span><span class="p">.</span><span class="n">ato</span><span class="p">;</span>
+        <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">timeout</span><span class="p">;</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="n">ato</span> <span class="o">&gt;</span> <span class="n">TCP_DELACK_MIN</span><span class="p">)</span> <span class="p">{</span>
+                <span class="k">const</span> <span class="k">struct</span> <span class="n">tcp_sock</span> <span class="o">*</span><span class="n">tp</span> <span class="o">=</span> <span class="n">tcp_sk</span><span class="p">(</span><span class="n">sk</span><span class="p">);</span>
+                <span class="kt">int</span> <span class="n">max_ato</span> <span class="o">=</span> <span class="n">HZ</span> <span class="o">/</span> <span class="mi">2</span><span class="p">;</span>
+    
+                <span class="k">if</span> <span class="p">(</span><span class="n">icsk</span><span class="o">-&gt;</span><span class="n">icsk_ack</span><span class="p">.</span><span class="n">pingpong</span> <span class="o">||</span>
+                    <span class="p">(</span><span class="n">icsk</span><span class="o">-&gt;</span><span class="n">icsk_ack</span><span class="p">.</span><span class="n">pending</span> <span class="o">&amp;</span> <span class="n">ICSK_ACK_PUSHED</span><span class="p">))</span>
+                        <span class="n">max_ato</span> <span class="o">=</span> <span class="n">TCP_DELACK_MAX</span><span class="p">;</span>
+    
+                <span class="cm">/* Slow path, intersegment interval is &#34;high&#34;. */</span>
+    
+                <span class="cm">/* If some rtt estimate is known, use it to bound delayed ack.
+</span><span class="cm">                 * Do not use inet_csk(sk)-&gt;icsk_rto here, use results of rtt measurements
+</span><span class="cm">                 * directly.
+</span><span class="cm">                 */</span>
+                <span class="k">if</span> <span class="p">(</span><span class="n">tp</span><span class="o">-&gt;</span><span class="n">srtt_us</span><span class="p">)</span> <span class="p">{</span>
+                        <span class="kt">int</span> <span class="n">rtt</span> <span class="o">=</span> <span class="n">max_t</span><span class="p">(</span><span class="kt">int</span><span class="p">,</span> <span class="n">usecs_to_jiffies</span><span class="p">(</span><span class="n">tp</span><span class="o">-&gt;</span><span class="n">srtt_us</span> <span class="o">&gt;&gt;</span> <span class="mi">3</span><span class="p">),</span>
+                                        <span class="n">TCP_DELACK_MIN</span><span class="p">);</span>
+    
+                        <span class="k">if</span> <span class="p">(</span><span class="n">rtt</span> <span class="o">&lt;</span> <span class="n">max_ato</span><span class="p">)</span>
+                                <span class="n">max_ato</span> <span class="o">=</span> <span class="n">rtt</span><span class="p">;</span>
+                <span class="p">}</span>
+    
+                <span class="n">ato</span> <span class="o">=</span> <span class="n">min</span><span class="p">(</span><span class="n">ato</span><span class="p">,</span> <span class="n">max_ato</span><span class="p">);</span>
+        <span class="p">}</span>
+    
+        <span class="cm">/* Stay within the limit we were given */</span>
+        <span class="n">timeout</span> <span class="o">=</span> <span class="n">jiffies</span> <span class="o">+</span> <span class="n">ato</span><span class="p">;</span><span class="c1">//设定delay ack定时器的超时时间，这个时间是根据ato的值来的
+</span><span class="c1"></span>  			<span class="c1">//总结下来，ato = min(icsk-&gt;icsk_ack.ato, min(TCP_DELACK_MAX, max(rtt, TCP_DELACK_MIN)))
+</span><span class="c1"></span>    
+            <span class="cm">/* Use new timeout only if there wasn&#39;t a older one earlier. */</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">icsk</span><span class="o">-&gt;</span><span class="n">icsk_ack</span><span class="p">.</span><span class="n">pending</span> <span class="o">&amp;</span> <span class="n">ICSK_ACK_TIMER</span><span class="p">)</span> <span class="p">{</span>
+                    <span class="cm">/* If delack timer was blocked or is about to expire,
+</span><span class="cm">                     * send ACK now.
+</span><span class="cm">                     */</span>
+                    <span class="k">if</span> <span class="p">(</span><span class="n">icsk</span><span class="o">-&gt;</span><span class="n">icsk_ack</span><span class="p">.</span><span class="n">blocked</span> <span class="o">||</span>
+                        <span class="n">time_before_eq</span><span class="p">(</span><span class="n">icsk</span><span class="o">-&gt;</span><span class="n">icsk_ack</span><span class="p">.</span><span class="n">timeout</span><span class="p">,</span> <span class="n">jiffies</span> <span class="o">+</span> <span class="p">(</span><span class="n">ato</span> <span class="o">&gt;&gt;</span> <span class="mi">2</span><span class="p">)))</span> <span class="p">{</span>
+                            <span class="n">tcp_send_ack</span><span class="p">(</span><span class="n">sk</span><span class="p">);</span>
+                            <span class="k">return</span><span class="p">;</span>
+                    <span class="p">}</span>
+    
+                    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">time_before</span><span class="p">(</span><span class="n">timeout</span><span class="p">,</span> <span class="n">icsk</span><span class="o">-&gt;</span><span class="n">icsk_ack</span><span class="p">.</span><span class="n">timeout</span><span class="p">))</span>
+                            <span class="n">timeout</span> <span class="o">=</span> <span class="n">icsk</span><span class="o">-&gt;</span><span class="n">icsk_ack</span><span class="p">.</span><span class="n">timeout</span><span class="p">;</span>
+            <span class="p">}</span>
+            <span class="n">icsk</span><span class="o">-&gt;</span><span class="n">icsk_ack</span><span class="p">.</span><span class="n">pending</span> <span class="o">|=</span> <span class="n">ICSK_ACK_SCHED</span> <span class="o">|</span> <span class="n">ICSK_ACK_TIMER</span><span class="p">;</span>
+            <span class="n">icsk</span><span class="o">-&gt;</span><span class="n">icsk_ack</span><span class="p">.</span><span class="n">timeout</span> <span class="o">=</span> <span class="n">timeout</span><span class="p">;</span>
+            <span class="n">sk_reset_timer</span><span class="p">(</span><span class="n">sk</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">icsk</span><span class="o">-&gt;</span><span class="n">icsk_delack_timer</span><span class="p">,</span> <span class="n">timeout</span><span class="p">);</span> <span class="c1">//设置定时器超时时间
+</span><span class="c1"></span><span class="p">}</span>
+</code></pre></td></tr></table>
+</div>
+</div><p>有了ato = min(icsk-&gt;icsk_ack.ato, min(TCP_DELACK_MAX, max(rtt, TCP_DELACK_MIN)))这个公式后，我们就有必要再看下icsk-&gt;icsk_ack.ato这个值是如何计算的</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span><span class="lnt">39
+</span><span class="lnt">40
+</span><span class="lnt">41
+</span><span class="lnt">42
+</span><span class="lnt">43
+</span><span class="lnt">44
+</span><span class="lnt">45
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-c" data-lang="c"><span class="k">static</span> <span class="kt">void</span> <span class="nf">tcp_event_data_recv</span><span class="p">(</span><span class="k">struct</span> <span class="n">sock</span> <span class="o">*</span><span class="n">sk</span><span class="p">,</span> <span class="k">struct</span> <span class="n">sk_buff</span> <span class="o">*</span><span class="n">skb</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="k">struct</span> <span class="n">tcp_sock</span> <span class="o">*</span><span class="n">tp</span> <span class="o">=</span> <span class="n">tcp_sk</span><span class="p">(</span><span class="n">sk</span><span class="p">);</span>
+    <span class="k">struct</span> <span class="n">inet_connection_sock</span> <span class="o">*</span><span class="n">icsk</span> <span class="o">=</span> <span class="n">inet_csk</span><span class="p">(</span><span class="n">sk</span><span class="p">);</span>
+    <span class="n">u32</span> <span class="n">now</span><span class="p">;</span>
+
+    <span class="n">inet_csk_schedule_ack</span><span class="p">(</span><span class="n">sk</span><span class="p">);</span>
+
+    <span class="n">tcp_measure_rcv_mss</span><span class="p">(</span><span class="n">sk</span><span class="p">,</span> <span class="n">skb</span><span class="p">);</span>
+
+    <span class="n">tcp_rcv_rtt_measure</span><span class="p">(</span><span class="n">tp</span><span class="p">);</span>
+
+    <span class="n">now</span> <span class="o">=</span> <span class="n">tcp_jiffies32</span><span class="p">;</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">icsk</span><span class="o">-&gt;</span><span class="n">icsk_ack</span><span class="p">.</span><span class="n">ato</span><span class="p">)</span> <span class="p">{</span>
+            <span class="cm">/* The _first_ data packet received, initialize
+</span><span class="cm">             * delayed ACK engine.
+</span><span class="cm">             */</span>
+            <span class="n">tcp_incr_quickack</span><span class="p">(</span><span class="n">sk</span><span class="p">,</span> <span class="n">TCP_MAX_QUICKACKS</span><span class="p">);</span><span class="c1">//收到第一个数据包，设置quick的计数
+</span><span class="c1"></span>            <span class="n">icsk</span><span class="o">-&gt;</span><span class="n">icsk_ack</span><span class="p">.</span><span class="n">ato</span> <span class="o">=</span> <span class="n">TCP_ATO_MIN</span><span class="p">;</span> <span class="c1">//设置ato的初始值为TCP_ATO_MIN
+</span><span class="c1"></span>    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+            <span class="kt">int</span> <span class="n">m</span> <span class="o">=</span> <span class="n">now</span> <span class="o">-</span> <span class="n">icsk</span><span class="o">-&gt;</span><span class="n">icsk_ack</span><span class="p">.</span><span class="n">lrcvtime</span><span class="p">;</span><span class="c1">//收包间隔
+</span><span class="c1"></span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">m</span> <span class="o">&lt;=</span> <span class="n">TCP_ATO_MIN</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="p">{</span>
+                    <span class="cm">/* The fastest case is the first. */</span>
+                    <span class="n">icsk</span><span class="o">-&gt;</span><span class="n">icsk_ack</span><span class="p">.</span><span class="n">ato</span> <span class="o">=</span> <span class="p">(</span><span class="n">icsk</span><span class="o">-&gt;</span><span class="n">icsk_ack</span><span class="p">.</span><span class="n">ato</span> <span class="o">&gt;&gt;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">TCP_ATO_MIN</span> <span class="o">/</span> <span class="mi">2</span><span class="p">;</span><span class="c1">//1.当收包间隔小于TCP_ATO_MIN/2时,ato初始值为TCP_ATO_MIN
+</span><span class="c1"></span>            <span class="p">}</span> <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">m</span> <span class="o">&lt;</span> <span class="n">icsk</span><span class="o">-&gt;</span><span class="n">icsk_ack</span><span class="p">.</span><span class="n">ato</span><span class="p">)</span> <span class="p">{</span><span class="c1">//2.收包间隔大于TCP_ATO_MIN/2小于ato时，此时m &gt; TCP_ATO_MIN/2，结合1，2我们可以确认ato的值是始终大于TCP_ATO_MIN无疑了
+</span><span class="c1"></span>                    <span class="n">icsk</span><span class="o">-&gt;</span><span class="n">icsk_ack</span><span class="p">.</span><span class="n">ato</span> <span class="o">=</span> <span class="p">(</span><span class="n">icsk</span><span class="o">-&gt;</span><span class="n">icsk_ack</span><span class="p">.</span><span class="n">ato</span> <span class="o">&gt;&gt;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">m</span><span class="p">;</span>
+                    <span class="k">if</span> <span class="p">(</span><span class="n">icsk</span><span class="o">-&gt;</span><span class="n">icsk_ack</span><span class="p">.</span><span class="n">ato</span> <span class="o">&gt;</span> <span class="n">icsk</span><span class="o">-&gt;</span><span class="n">icsk_rto</span><span class="p">)</span>
+                            <span class="n">icsk</span><span class="o">-&gt;</span><span class="n">icsk_ack</span><span class="p">.</span><span class="n">ato</span> <span class="o">=</span> <span class="n">icsk</span><span class="o">-&gt;</span><span class="n">icsk_rto</span><span class="p">;</span>
+            <span class="p">}</span> <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">m</span> <span class="o">&gt;</span> <span class="n">icsk</span><span class="o">-&gt;</span><span class="n">icsk_rto</span><span class="p">)</span> <span class="p">{</span><span class="c1">//收包间隔大于超时时间，保持ato的值不变，进入quick ack模式
+</span><span class="c1"></span>                    <span class="cm">/* Too long gap. Apparently sender failed to
+</span><span class="cm">                     * restart window, so that we send ACKs quickly.
+</span><span class="cm">                     */</span>
+                     <span class="n">tcp_incr_quickack</span><span class="p">(</span><span class="n">sk</span><span class="p">,</span> <span class="n">TCP_MAX_QUICKACKS</span><span class="p">);</span>
+                        <span class="n">sk_mem_reclaim</span><span class="p">(</span><span class="n">sk</span><span class="p">);</span>
+                <span class="p">}</span>
+        <span class="p">}</span>
+        <span class="n">icsk</span><span class="o">-&gt;</span><span class="n">icsk_ack</span><span class="p">.</span><span class="n">lrcvtime</span> <span class="o">=</span> <span class="n">now</span><span class="p">;</span>
+
+        <span class="n">tcp_ecn_check_ce</span><span class="p">(</span><span class="n">sk</span><span class="p">,</span> <span class="n">skb</span><span class="p">);</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="n">skb</span><span class="o">-&gt;</span><span class="n">len</span> <span class="o">&gt;=</span> <span class="mi">128</span><span class="p">)</span>
+                <span class="n">tcp_grow_window</span><span class="p">(</span><span class="n">sk</span><span class="p">,</span> <span class="n">skb</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></td></tr></table>
+</div>
+</div><p>结合min(icsk-&gt;icsk_ack.ato, min(TCP_DELACK_MAX, max(rtt, TCP_DELACK_MIN)))公式和这段代码的分析我们可以确认delay ack的超时间隔，肯定是介于min(TCP_ATO_MIN, TCP_DELACK_MIN)和TCP_DELACK_MAX之间的，而现在系统的宏TCP_ATO_MIN=TCP_DELACK_MIN=40ms, TCP_DELACK_MAX=200ms，也就是说如果我们需要调控的话需要同时调控TCP_ATO_MIN, TCP_DELACK_MIN和TCP_DELACK_MAX，而上述链接中对sysctl_tcp_delack_segs的调控，只会减缓de lay ack回复的速度，对于我们希望加快delay ack回复的场景没有帮助。</p>
+<p>但是我们还是没能解释清楚，什么情况下就会触发delay ack超时，触发了delay ack超时后对业务到底又有什么影响呢？</p>
+<p>这个时候我们就需要跟发送端结合起来进行分析，试想在__tcp_ack_snd_check中，如果接收到的包没有超过一个mss，tcp又处于乒乓模式，这样就进入了delay ack模式，如果这个时候会导致发送端无法继续发送数据，需要等到delay ack超时后回复ack到发送端，然后才有数据发送过来，是不是就出问题了？那这种场景存不存在呢，答案是肯定的，真就存在这种场景。</p>
+<p>linux tcp协议栈默认就开启了nagle算法，也就是说tcp协议栈默认会做的事情就是将小报文聚合成一个mss的报文，然后再发送给接收端，当然这个聚合也是要满足一定的条件的，而如果要禁用掉这个算法的话，需要针对套接字设定套接字选项，通过设置TCP_NODELAY把nagle算法禁掉，如果开启了TCP_NODELAY当然是不会触发我们说的上述问题的。关键在于很多情况业务应该不会特地去设这个选项，但又发送小报文，看下tcp发端这部分代码的处理.</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-c" data-lang="c"><span class="k">static</span> <span class="kt">bool</span> <span class="nf">tcp_write_xmit</span><span class="p">(</span><span class="k">struct</span> <span class="n">sock</span> <span class="o">*</span><span class="n">sk</span><span class="p">,</span> <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">mss_now</span><span class="p">,</span> <span class="kt">int</span> <span class="n">nonagle</span><span class="p">,</span>
+                           <span class="kt">int</span> <span class="n">push_one</span><span class="p">,</span> <span class="n">gfp_t</span> <span class="n">gfp</span><span class="p">)</span>
+<span class="p">{</span>
+
+<span class="p">......</span>
+
+				<span class="k">if</span> <span class="p">(</span><span class="n">tso_segs</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+          <span class="k">if</span> <span class="p">(</span><span class="n">unlikely</span><span class="p">(</span><span class="o">!</span><span class="n">tcp_nagle_test</span><span class="p">(</span><span class="n">tp</span><span class="p">,</span> <span class="n">skb</span><span class="p">,</span> <span class="n">mss_now</span><span class="p">,</span>
+                                       <span class="p">(</span><span class="n">tcp_skb_is_last</span><span class="p">(</span><span class="n">sk</span><span class="p">,</span> <span class="n">skb</span><span class="p">)</span> <span class="o">?</span>
+                                        <span class="nl">nonagle</span> <span class="p">:</span> <span class="n">TCP_NAGLE_PUSH</span><span class="p">))))</span>
+            <span class="k">break</span><span class="p">;</span>
+        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+          <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">push_one</span> <span class="o">&amp;&amp;</span>
+              <span class="n">tcp_tso_should_defer</span><span class="p">(</span><span class="n">sk</span><span class="p">,</span> <span class="n">skb</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">is_cwnd_limited</span><span class="p">,</span>
+                                   <span class="o">&amp;</span><span class="n">is_rwnd_limited</span><span class="p">,</span> <span class="n">max_segs</span><span class="p">))</span>
+            <span class="k">break</span><span class="p">;</span>
+        <span class="p">}</span>
+
+<span class="p">......</span>
+<span class="p">}</span>
+</code></pre></td></tr></table>
+</div>
+</div><p>也就是说当tcp_nagle_test返回false的时候是不会把包发出去的，首先要保证的一点就是这个发送的skb是发送缓冲区最后一个，一般在小包场景都是之前聚合成了mss的数据包发出去，还没发出去的是这个最后还等着聚包的skb，也就是说这个场景传递进去的最后一个参数多为0而不是TCP_NAGLE_PUSH.再来分析tcp_nagle_test</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-c" data-lang="c"><span class="cm">/* Return true if the Nagle test allows this packet to be
+</span><span class="cm"> * sent now.
+</span><span class="cm"> */</span>
+   <span class="k">static</span> <span class="kr">inline</span> <span class="kt">bool</span> <span class="nf">tcp_nagle_test</span><span class="p">(</span><span class="k">const</span> <span class="k">struct</span> <span class="n">tcp_sock</span> <span class="o">*</span><span class="n">tp</span><span class="p">,</span> <span class="k">const</span> <span class="k">struct</span> <span class="n">sk_buff</span> <span class="o">*</span><span class="n">skb</span><span class="p">,</span>
+                                 <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">cur_mss</span><span class="p">,</span> <span class="kt">int</span> <span class="n">nonagle</span><span class="p">)</span>
+   <span class="p">{</span>
+       <span class="cm">/* Nagle rule does not apply to frames, which sit in the middle of the
+</span><span class="cm">        * write_queue (they have no chances to get new data).
+</span><span class="cm">        *
+</span><span class="cm">        * This is implemented in the callers, where they modify the &#39;nonagle&#39;
+</span><span class="cm">        * argument based upon the location of SKB in the send queue.
+</span><span class="cm">        */</span>
+       <span class="k">if</span> <span class="p">(</span><span class="n">nonagle</span> <span class="o">&amp;</span> <span class="n">TCP_NAGLE_PUSH</span><span class="p">)</span><span class="c1">//1.这个时候nonagle基本都是0，这个条件不成立
+</span><span class="c1"></span>               <span class="k">return</span> <span class="nb">true</span><span class="p">;</span>
+
+       <span class="cm">/* Don&#39;t use the nagle rule for urgent data (or for the final FIN). */</span>
+       <span class="k">if</span> <span class="p">(</span><span class="n">tcp_urg_mode</span><span class="p">(</span><span class="n">tp</span><span class="p">)</span> <span class="o">||</span> <span class="p">(</span><span class="n">TCP_SKB_CB</span><span class="p">(</span><span class="n">skb</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">tcp_flags</span> <span class="o">&amp;</span> <span class="n">TCPHDR_FIN</span><span class="p">))</span><span class="c1">//2.需要紧急数据发送或者发送FIN报文，不成立
+</span><span class="c1"></span>               <span class="k">return</span> <span class="nb">true</span><span class="p">;</span>
+       
+       <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">tcp_nagle_check</span><span class="p">(</span><span class="n">skb</span><span class="o">-&gt;</span><span class="n">len</span> <span class="o">&lt;</span> <span class="n">cur_mss</span><span class="p">,</span> <span class="n">tp</span><span class="p">,</span> <span class="n">nonagle</span><span class="p">))</span> <span class="c1">//3.判定nagle算法是否生效，生效的话就会走到最后tcp_nagle_test返回false，当前这个包不能立即发送
+</span><span class="c1"></span>               <span class="k">return</span> <span class="nb">true</span><span class="p">;</span>
+       
+       <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+
+   <span class="p">}</span>
+</code></pre></td></tr></table>
+</div>
+</div><p>那现在的关键点就看tcp_nagle_check的实现了</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-c" data-lang="c"><span class="cm">/* Return false, if packet can be sent now without violation Nagle&#39;s rules:
+</span><span class="cm">
+</span><span class="cm"> * 1. It is full sized. (provided by caller in %partial bool)
+</span><span class="cm"> * 2. Or it contains FIN. (already checked by caller)
+</span><span class="cm"> * 3. Or TCP_CORK is not set, and TCP_NODELAY is set.
+</span><span class="cm"> * 4. Or TCP_CORK is not set, and all sent packets are ACKed.
+</span><span class="cm"> * With Minshall&#39;s modification: all sent small packets are ACKed.
+</span><span class="cm"> */</span>
+   <span class="k">static</span> <span class="kt">bool</span> <span class="nf">tcp_nagle_check</span><span class="p">(</span><span class="kt">bool</span> <span class="n">partial</span><span class="p">,</span> <span class="k">const</span> <span class="k">struct</span> <span class="n">tcp_sock</span> <span class="o">*</span><span class="n">tp</span><span class="p">,</span>
+                         <span class="kt">int</span> <span class="n">nonagle</span><span class="p">)</span>
+   <span class="p">{</span>
+     <span class="k">return</span> <span class="n">partial</span> <span class="o">&amp;&amp;</span> <span class="c1">//可以看到发送的数据小于mss时，partial为真
+</span><span class="c1"></span>             <span class="p">((</span><span class="n">nonagle</span> <span class="o">&amp;</span> <span class="n">TCP_NAGLE_CORK</span><span class="p">)</span> <span class="o">||</span> <span class="c1">//如果显式设置了TCP_CORK的话，肯定是要塞住的，这个flag是通过setsockopt设置的，一般时候应用也不会去设
+</span><span class="c1"></span>              <span class="p">(</span><span class="o">!</span><span class="n">nonagle</span> <span class="o">&amp;&amp;</span> <span class="n">tp</span><span class="o">-&gt;</span><span class="n">packets_out</span> <span class="o">&amp;&amp;</span> <span class="n">tcp_minshall_check</span><span class="p">(</span><span class="n">tp</span><span class="p">)));</span> <span class="c1">//nonagle为0，并且还有数据包发出去了未被ack，并且上一个发送的小包没有确认，这三个条件在小报文发送的场景是很有可能一起满足的！！！
+</span><span class="c1"></span>   <span class="p">}</span>
+</code></pre></td></tr></table>
+</div>
+</div><h2 id="结论与解法">结论与解法</h2>
+<p>通过上面的分析我们应该能够清晰的看到，如果业务层面是在进行小包发送，且收端也偶尔有数据需要回复给发端，这时候进入乒乓模式，而发端上一个发送的小报文出去后，收端进入delay ack确认流程，这个时候业务再发送小报文到协议栈，协议栈则不能立即将报文发送出去了，需要等待delay ack超时后回复延迟ack才能再进一步发送数据。</p>
+<p>这么看来是有业务场景很可能会触发这个问题的，而且在数据中心网络里面，rtt是很小的，如果要等到delay ack超时的话，当前至少是40ms的时间，那么这个时延对于业务来说是不可接受的，因此我们还是很有必要对这个超时时间进行调控。</p>
+<p>调控的方法就是需要将TCP_ATO_MIN, TCP_DELACK_MIN, TCP_DELACK_MAX通过sysctl export出来，调控时尽量让sysctl_tcp_ato_min = sysctl_tcp_delack_min，我觉得可以尝试定位4ms，sysctl_tcp_delack_max可以设定成40ms, 在数据中心网络里面rtt很小，因此大部分超时时间应该可以控制在4ms多一点，这个需要等待实践证明。</p>
+
+    </div>
+
+    <div class="post-copyright">
+  <p class="copyright-item">
+    <span class="item-title">Author</span>
+    <span class="item-content">bianze</span>
+  </p>
+  <p class="copyright-item">
+    <span class="item-title">LastMod</span>
+    <span class="item-content">
+        2020-08-12
+        
+    </span>
+  </p>
+  
+  
+</div>
+<footer class="post-footer">
+      <div class="post-tags">
+          <a href="/tags/tcp/">TCP</a>
+          </div>
+      <nav class="post-nav">
+        <a class="prev" href="/post/network_rps_analysis/">
+            <i class="iconfont icon-left"></i>
+            <span class="prev-text nav-default">Linux RSS RPS RFS剖析</span>
+            <span class="prev-text nav-mobile">Prev</span>
+          </a>
+        <a class="next" href="/post/ebpf_xdp_redirect/">
+            <span class="next-text nav-default">容器网络数据面XDP redirect实践</span>
+            <span class="next-text nav-mobile">Next</span>
+            <i class="iconfont icon-right"></i>
+          </a>
+      </nav>
+    </footer>
+  </article>
+        </div>
+        
+
+  
+
+  
+
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="social-links">
+      <a href="mailto:your@email.com" class="iconfont icon-email" title="email"></a>
+      <a href="http://localhost:1313" class="iconfont icon-stack-overflow" title="stack-overflow"></a>
+      <a href="http://localhost:1313" class="iconfont icon-twitter" title="twitter"></a>
+      <a href="http://localhost:1313" class="iconfont icon-facebook" title="facebook"></a>
+      <a href="http://localhost:1313" class="iconfont icon-linkedin" title="linkedin"></a>
+      <a href="http://localhost:1313" class="iconfont icon-google" title="google"></a>
+      <a href="http://localhost:1313" class="iconfont icon-github" title="github"></a>
+      <a href="http://localhost:1313" class="iconfont icon-weibo" title="weibo"></a>
+      <a href="http://localhost:1313" class="iconfont icon-zhihu" title="zhihu"></a>
+      <a href="http://localhost:1313" class="iconfont icon-douban" title="douban"></a>
+      <a href="http://localhost:1313" class="iconfont icon-pocket" title="pocket"></a>
+      <a href="http://localhost:1313" class="iconfont icon-tumblr" title="tumblr"></a>
+      <a href="http://localhost:1313" class="iconfont icon-instagram" title="instagram"></a>
+      <a href="http://localhost:1313" class="iconfont icon-gitlab" title="gitlab"></a>
+      <a href="http://localhost:1313" class="iconfont icon-bilibili" title="bilibili"></a>
+  <a href="http://localhost:1313/index.xml" type="application/rss+xml" class="iconfont icon-rss" title="rss"></a>
+</div>
+
+<div class="copyright">
+  <span class="power-by">
+    Powered by <a class="hexo-link" href="https://gohugo.io">Hugo</a>
+  </span>
+  <span class="division">|</span>
+  <span class="theme-info">
+    Theme - 
+    <a class="theme-link" href="https://github.com/olOwOlo/hugo-theme-even">Even</a>
+  </span>
+
+  
+
+  <span class="copyright-year">
+    &copy; 
+    2017 - 
+    2020
+    <span class="heart">
+      <i class="iconfont icon-heart"></i>
+    </span>
+    <span class="author">bianze</span>
+  </span>
+</div>
+    </footer>
+
+    <div class="back-to-top" id="back-to-top">
+      <i class="iconfont icon-up"></i>
+    </div>
+  </div>
+  
+  <script src="https://cdn.jsdelivr.net/npm/jquery@3.2.1/dist/jquery.min.js" integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4=" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/slideout@1.0.1/dist/slideout.min.js" integrity="sha256-t+zJ/g8/KXIJMjSVQdnibt4dlaDxc9zXr/9oNPeWqdg=" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@3.1.20/dist/jquery.fancybox.min.js" integrity="sha256-XVLffZaxoWfGUEbdzuLi7pwaUJv1cecsQJQqGLe7axY=" crossorigin="anonymous"></script>
+
+
+
+<script type="text/javascript" src="/js/main.min.d7b7ada643c9c1a983026e177f141f7363b4640d619caf01d8831a6718cd44ea.js"></script>
+
+
+
+
+
+
+
+
+</body>
+</html>

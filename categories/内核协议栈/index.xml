@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>内核协议栈 on bianze - Welcome to bianze&#39;s blog</title>
+    <link>http://localhost:1313/categories/%E5%86%85%E6%A0%B8%E5%8D%8F%E8%AE%AE%E6%A0%88/</link>
+    <description>Recent content in 内核协议栈 on bianze - Welcome to bianze&#39;s blog</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en</language>
+    <lastBuildDate>Mon, 24 Aug 2020 16:41:34 +0800</lastBuildDate>
+    
+	<atom:link href="http://localhost:1313/categories/%E5%86%85%E6%A0%B8%E5%8D%8F%E8%AE%AE%E6%A0%88/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>Linux RSS RPS RFS剖析</title>
+      <link>http://localhost:1313/post/network_rps_analysis/</link>
+      <pubDate>Mon, 24 Aug 2020 16:41:34 +0800</pubDate>
+      
+      <guid>http://localhost:1313/post/network_rps_analysis/</guid>
+      <description>引言 在网络负载高的系统中，我们经常可以看到某个CPU的软中断消耗非常高，这时这个CPU容易跑满，性能达到瓶颈值。为优化系统性能，需均衡收包软</description>
+    </item>
+    
+    <item>
+      <title>Packetdrill介绍和分析</title>
+      <link>http://localhost:1313/post/network_packetdrill_introduction/</link>
+      <pubDate>Fri, 03 Jul 2020 11:49:57 +0800</pubDate>
+      
+      <guid>http://localhost:1313/post/network_packetdrill_introduction/</guid>
+      <description>简介 Packetdrill是Google开发并开源的一款协议栈测试工具，可以测试TCP/UDP/ICMP/IPV4/IPV6协议，目前支持L</description>
+    </item>
+    
+  </channel>
+</rss>

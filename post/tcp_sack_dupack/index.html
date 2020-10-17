@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <title>TCP开启SACK后dup ACK未触发快速重传问题分析 - bianze - Welcome to bianze&#39;s blog</title>
+  <meta name="renderer" content="webkit" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+<meta name="theme-color" content="#f8f5ec" />
+<meta name="msapplication-navbutton-color" content="#f8f5ec">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="#f8f5ec">
+
+
+<meta name="author" content="bianze" /><meta name="description" content="问题现象 在业务跑的过程中，发现tcp数据包的时延存在抖动的情况，内核版本为4.18-***，抓到如下所示的数据包： 可以看到从206开始的AC" /><meta name="keywords" content="Hugo, theme, even" />
+
+
+
+
+
+
+<meta name="generator" content="Hugo 0.66.0 with theme even" />
+
+
+<link rel="canonical" href="http://localhost:1313/post/tcp_sack_dupack/" />
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="manifest" href="/manifest.json">
+<link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5">
+
+
+
+<link href="/sass/main.min.8c3cbcb0324c2bb4875ceccba4007cbad4b4ac8377f33af9953c3e7684534a50.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@3.1.20/dist/jquery.fancybox.min.css" integrity="sha256-7TyXnr2YU040zfSP+rEcz29ggW4j56/ujTPwjMzyqFY=" crossorigin="anonymous">
+
+
+<meta property="og:title" content="TCP开启SACK后dup ACK未触发快速重传问题分析" />
+<meta property="og:description" content="问题现象 在业务跑的过程中，发现tcp数据包的时延存在抖动的情况，内核版本为4.18-***，抓到如下所示的数据包： 可以看到从206开始的AC" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="http://localhost:1313/post/tcp_sack_dupack/" />
+<meta property="article:published_time" content="2020-06-30T11:12:42+08:00" />
+<meta property="article:modified_time" content="2020-06-30T11:12:42+08:00" />
+<meta itemprop="name" content="TCP开启SACK后dup ACK未触发快速重传问题分析">
+<meta itemprop="description" content="问题现象 在业务跑的过程中，发现tcp数据包的时延存在抖动的情况，内核版本为4.18-***，抓到如下所示的数据包： 可以看到从206开始的AC">
+<meta itemprop="datePublished" content="2020-06-30T11:12:42&#43;08:00" />
+<meta itemprop="dateModified" content="2020-06-30T11:12:42&#43;08:00" />
+<meta itemprop="wordCount" content="4869">
+
+
+
+<meta itemprop="keywords" content="TCP," /><meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="TCP开启SACK后dup ACK未触发快速重传问题分析"/>
+<meta name="twitter:description" content="问题现象 在业务跑的过程中，发现tcp数据包的时延存在抖动的情况，内核版本为4.18-***，抓到如下所示的数据包： 可以看到从206开始的AC"/>
+
+<!--[if lte IE 9]>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/classlist/1.1.20170427/classList.min.js"></script>
+<![endif]-->
+
+<!--[if lt IE 9]>
+  <script src="https://cdn.jsdelivr.net/npm/html5shiv@3.7.3/dist/html5shiv.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/respond.js@1.4.2/dest/respond.min.js"></script>
+<![endif]-->
+
+</head>
+<body>
+  <div id="mobile-navbar" class="mobile-navbar">
+  <div class="mobile-header-logo">
+    <a href="/" class="logo">昪泽</a>
+  </div>
+  <div class="mobile-navbar-icon">
+    <span></span>
+    <span></span>
+    <span></span>
+  </div>
+</div>
+<nav id="mobile-menu" class="mobile-menu slideout-menu">
+  <ul class="mobile-menu-list">
+    <a href="/">
+        <li class="mobile-menu-item">Home</li>
+      </a><a href="/post/">
+        <li class="mobile-menu-item">Archives</li>
+      </a><a href="/tags/">
+        <li class="mobile-menu-item">Tags</li>
+      </a><a href="/categories/">
+        <li class="mobile-menu-item">Categories</li>
+      </a>
+  </ul>
+</nav>
+  <div class="container" id="mobile-panel">
+    <header id="header" class="header">
+        <div class="logo-wrapper">
+  <a href="/" class="logo">昪泽</a>
+</div>
+
+<nav class="site-navbar">
+  <ul id="menu" class="menu">
+    <li class="menu-item">
+        <a class="menu-item-link" href="/">Home</a>
+      </li><li class="menu-item">
+        <a class="menu-item-link" href="/post/">Archives</a>
+      </li><li class="menu-item">
+        <a class="menu-item-link" href="/tags/">Tags</a>
+      </li><li class="menu-item">
+        <a class="menu-item-link" href="/categories/">Categories</a>
+      </li>
+  </ul>
+</nav>
+    </header>
+
+    <main id="main" class="main">
+      <div class="content-wrapper">
+        <div id="content" class="content">
+          <article class="post">
+    
+    <header class="post-header">
+      <h1 class="post-title">TCP开启SACK后dup ACK未触发快速重传问题分析</h1>
+
+      <div class="post-meta">
+        <span class="post-time"> 2020-06-30 </span>
+        <div class="post-category">
+            <a href="/categories/tcp/"> TCP </a>
+            </div>
+        
+      </div>
+    </header>
+
+    <div class="post-toc" id="post-toc">
+  <h2 class="post-toc-title">Contents</h2>
+  <div class="post-toc-content always-active">
+    <nav id="TableOfContents">
+  <ul>
+    <li><a href="#问题现象">问题现象</a></li>
+    <li><a href="#sack简介">SACK简介</a></li>
+    <li><a href="#rack简介">RACK简介</a></li>
+    <li><a href="#协议栈重放测试">协议栈重放测试</a></li>
+    <li><a href="#结论">结论</a></li>
+    <li><a href="#参考文献">参考文献</a></li>
+  </ul>
+</nav>
+  </div>
+</div>
+    <div class="post-content">
+      <h2 id="问题现象">问题现象</h2>
+<p>在业务跑的过程中，发现tcp数据包的时延存在抖动的情况，内核版本为4.18-***，抓到如下所示的数据包：</p>
+<p><img src="/pic/screenshot_2020-06-30_am_11.25.21.png" alt=""></p>
+<p>可以看到从206开始的ACK报文确认的序列号都是3292711，但是发送端一直未重传这个包，直到最终过了大概250ms触发超时重传（这个截图里没有直接体现），这个包才重新发送，这样导致了时延抖动。这里我们暂且不分析为什么业务的底层链路会丢失这么多包，我们仅分析发送端协议栈的行为，以及如何从发送端来解决规避该问题。</p>
+<p>通过查阅相关的资料和阅读源码，分析这个现象与tcp开启SACK后的dup ACK与未开启时存在一定的差异，以及tcp_recovery对这块有一定的影响，下面先简单介绍下SACK的dup ACK和recovery, 然后配合packetdrill重放类似的传输场景来观察协议栈的行为。</p>
+<h2 id="sack简介">SACK简介</h2>
+<p>SACK全称为Selective Acknowlegement, 用以解决累积ACK机制一次只能触发单个报文传输，重传效率低下而引入。SACK可以把接收端的序列号之间的空洞反映给发送端，因此发送端可以更充分的理解接收端的情况，进而更有效的选择数据包进行重传恢复。</p>
+<p>下图是202序号的数据包展开的情况，可以清楚的看到在TCP选项中携带了3个SACK段，用以告诉发送端这三段序列号之间的数据包已经接收。</p>
+<p><img src="/pic/screenshot_2020-06-30_am_11.52.14.png" alt="屏幕快照 2020-06-30 上午11.52.14"></p>
+<p>一般情况下，大家都有听过三次累积ACK会触发一次快速重传，这个三次其实就是默认设的一个dup threshold。在未开启SACK的时候，ACK报文只能告诉发送端ack seqnum之前的报文接收端已经收到了，如果有3次重复的这样的ACK确认，则发送端需要马上重传这个ack seqnum的数据包。在开启SACK后情况有点不太一样了，接收端可以反馈更多的信息，我们来看RFC6675中关于SACK中dup ACK的介绍：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span><span class="lnt">8
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-fallback" data-lang="fallback">   For the purposes of this specification, we define a &#34;duplicate
+   acknowledgment&#34; as a segment that arrives carrying a SACK block that
+   identifies previously unacknowledged and un-SACKed octets between
+   HighACK and HighData.  Note that an ACK which carries new SACK data
+   is counted as a duplicate acknowledgment under this definition even
+   if it carries new data, changes the advertised window, or moves the
+   cumulative acknowledgment point, which is different from the
+   definition of duplicate acknowledgment in [RFC5681].
+</code></pre></td></tr></table>
+</div>
+</div><p>其中HighACK表示累积确认的最大序号，即在这个序号之前的数据接收端均已收到，HighData表示发送出去的数据的最大序号，这段描述表示ACK中携带的SACK可以认为是重复确认，看这个描述可能还不清晰，接着我门看下这个RFC中对于丢包的判定描述：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span><span class="lnt">8
+</span></code></pre></td>
+<td class="lntd">
+<pre class="chroma"><code class="language-fallback" data-lang="fallback">IsLost (SeqNum):
+
+      This routine returns whether the given sequence number is
+      considered to be lost.  The routine returns true when either
+      DupThresh discontiguous SACKed sequences have arrived above
+      &#39;SeqNum&#39; or more than (DupThresh - 1) * SMSS bytes with sequence
+      numbers greater than &#39;SeqNum&#39; have been SACKed.  Otherwise, the
+      routine returns false.
+</code></pre></td></tr></table>
+</div>
+</div><p>从这段描述中我们可以看到，有两种情况可以将SeqNum标记为lost，进而触发快速重传：</p>
+<ol>
+<li>ACK数据包中携带的SACK个数等于DupThresh，且这些SACK确认的序号都比SeqNum大，我们这里记录这个为条件1，下面2为条件2，方便后续阐述；</li>
+<li>被SACK的数据中，比Seqnum大的数据超过(DupThresh - 1) * SMSS字节数，因为MSS是最大传输报文段，因此超过(DupThresh - 1) * SMSS字节则必须至少用DupThresh个数据包才能传输完成；</li>
+</ol>
+<p>上面这么表述是为了理解方便，实际上IsLost是在算法实现时用于选择传输哪个报文时用的，具体的算法见RFC的第5小节，写得比较具体，这边就不翻译了。</p>
+<h2 id="rack简介">RACK简介</h2>
+<p>RACK全称为Recent Acknowlegement，是一种新的基于时间的丢包探测算法，提出的目的在于取代传统的基于dupThresh门限的各种快速重传算法，其主要思想为：如果发送端收到的确认包中的SACK选项确认收到了一个数据包，那么在这个数据包之前发送的数据包要么是在传输过程中发生了乱序，要么是发生了丢包。RACK使用最近投递成功的数据包的发送时刻来推测在这个数据包之前传输的数据包是否已经过期(expired)，RACK把这些过期的数据包标记为lost，立即触发快速重传，因此RACK可以修复丢包且不用等一个比较长的RTO超时。</p>
+<p>RACK当前还是一个实验算法，但是linux内核中已经引入了，且默认打开了该选项。linux中通过net.ipv4.tcp_recovery选项来控制RACK是否开启：</p>
+<pre><code>tcp_recovery - INTEGER                                                                                                                          
+    This value is a bitmap to enable various experimental loss recovery
+    features.
+
+    RACK: 0x1 enables the RACK loss detection for fast detection of lost
+          retransmissions and tail drops. It also subsumes and disables
+          RFC6675 recovery for SACK connections.
+    RACK: 0x2 makes RACK's reordering window static (min_rtt/4).
+    RACK: 0x4 disables RACK's DUPACK threshold heuristic
+
+    Default: 0x1
+</code></pre>
+<p>RACK的使用主要需要三个条件：</p>
+<ol>
+<li>TCP连接必须使用SACK选项</li>
+<li>对于每个发送的数据包，发送端必须存储这个数据包的发送时间，时间精度至少要达到毫秒精度。如果连接的RTT小于1ms，那么微秒精度将会更有利于RACK探测丢包。</li>
+<li>对于每个发送出去的数据包，发送端必须存储这个数据包是否已经重传过</li>
+</ol>
+<h2 id="协议栈重放测试">协议栈重放测试</h2>
+<p>packetdrill工具是google开源的一款用于测试tcp/udp/ipv4/ipv6的协议栈测试工具，可以自己编写测试脚本模拟各种收发包行为，来观测协议栈的表现是否符合预期，我们也是通过packetdrill来模拟业务出问题场景时的数据包，观测此时协议栈的行为。</p>
+<p>在开始之前，我们先再来详细分析下业务出问题时的抓包情况：</p>
+<p><img src="/pic/screenshot_2020-06-30_am_11.25.21.png" alt=""></p>
+<p>200序号数据包发送了3270119-3307969共37850个字节的数据，网卡应该是开启了GSO/TSO，后续会对这个大报文进行分片传输</p>
+<p>201序号数据包确认了3270119之前的数据均已收到且未携带任何SACK信息</p>
+<p>202序号数据包确认了3287063之前的数据均已收到，且SACK了三段数据：3298359-3306831 3294123-3296947 3288475-3292711</p>
+<p>203序号数据包重传了3287063-3288475共1412个字节的数据</p>
+<p>204序号数据包确认了3292711之前的数据均已收到，且SACK了两段数据：3298359-3306831 3294123-3296947</p>
+<p>205序号数据包重传了3306831-3307969共1138个字节的数据</p>
+<p>后续的数据包均是累积确认了3292711之前的数据已收到，且SACK两段数据：3298359-latestsent 3294123-3296947，收到这种ACK后继续发送latestsent后续的数据包，未触发3292711和3296947的重传。</p>
+<p>其实根据我们在SACK中丢包判定条件的分析，收到202序号时，我们根据条件1可以确认3287063已经lost，根据条件2可以确认3292711和3296947已经丢失，在这个时间点就应该触发这几个数据包的快速重传，但是抓包只看到了3287063这个包重传了。后续收到204序号包时，也没有去重传3292711和3296947这两个包，而选择去重传200序号中发送的最后一个分段，这里边有点诡异。我怀疑是在收到202序号包时，3292711和3296947已经标记重传了，但是抓包未抓到，未抓到的原因可能是这个抓包是中间节点抓的，当时已经重传，但是在中途丢失了。而在3292711和3296947被标记重传后，后续再收到这些Dup ACK的时候便不会再选择去重传这两个数据包了，直到超时发生，然后再重传恢复。</p>
+<p>下面我们可以通过自己模拟来验证这部分猜想，我们编写packetdrill脚本，通过回应上述业务场景类似的ACK来进行模拟，详细脚本如下：</p>
+<pre><code>    0 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
+   +0 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+   +0 bind(3, ..., ...) = 0
+   +0 listen(3, 1) = 0
+
+   +0 &lt; S 0:0(0) win 32792 &lt;mss 1000,sackOK,nop,nop,nop,wscale 7&gt;
+   //+0 &gt; S. 0:0(0) ack 1 &lt;mss 1460,nop,nop,sackOK,nop,wscale 8&gt;
+   +0 &gt; S. 0:0(0) ack 1 win 29200 &lt;mss 1460,nop,nop,sackOK,nop,wscale 9&gt;
+  +.1 &lt; . 1:1(0) ack 1 win 1024
+   +0 accept(3, ..., ...) = 4
+
+   +0 write(4, ..., 20000) = 20000
+   //+0 &gt; P. 1:10001(10000) ack 1
+
+  +.1 &lt; . 1:1(0) ack 1001 win 257 //确认1-1001收到
+   // expect some packets
+
+  +.01 &lt; . 1:1(0) ack 1001 win 257 &lt;sack 8001:10001 6001:7001 2001:5001, nop, nop&gt; //SACK通告1001-2001，5001-6001，7001-8001乱序
+   // 期望发送端重传1001-2001，5001-6001
+
+ +.001 &lt; . 1:1(0) ack 5001 win 257 &lt;sack 8001:10001 6001:7001, nop, nop&gt; //SACK通告5001-6001，7001-8001
+   // 期望发送端在这或者之前重传5001-6001，不能发送7001-8001
+
+ +.001 &lt; . 1:1(0) ack 5001 win 257 &lt;sack 8001:11001 6001:7001, nop, nop&gt;
+   // 期望发送端重传7001-8001
+
+ +.001 &lt; . 1:1(0) ack 5001 win 257 &lt;sack 8001:12001 6001:7001, nop, nop&gt;
+   // expect some packets
+
+ +.001 &lt; . 1:1(0) ack 5001 win 257 &lt;sack 8001:13001 6001:7001, nop, nop&gt;
+   // expect some packets
+
+ +.001 &lt; . 1:1(0) ack 5001 win 257 &lt;sack 8001:14001 6001:7001, nop, nop&gt;
+   // expect some packets
+
+ +.001 &lt; . 1:1(0) ack 5001 win 257 &lt;sack 8001:15001 6001:7001, nop, nop&gt;
+   // expect some packets
+
+  +5 close(4) = 0 //定个时间，让脚本退出，在此之前观测协议栈超时重传的情况
+</code></pre>
+<p>首先，我们观察在不开启RACK时，协议栈的行为，sysctl net.ipv4.tcp_recovery = 0, 抓到数据包如下：</p>
+<p><img src="/pic/screenshot_2020-06-30_pm_4.05.35.png" alt=""></p>
+<p>11序号数据包确认了1001之前的数据均已收到，SACK了三段数据：2001-5001，6001-7001，8001-10001，根据SACK中丢包条件的判定规则，通过条件1可以确认1001-2001 lost，通过条件2可以确认5001-6001 lost，但是还确认不了7001-8001是否lost</p>
+<p>12序号数据包重传了1001-2001，确实是触发了快速重传</p>
+<p>13序号数据包重传了5001-6001，确实是触发了快速重传</p>
+<p>14序号数据包发送了12001-14001，应该是有发送窗口，可以继续发送数据包</p>
+<p>15序号数据包确认了5001之前的数据均已收到，SACK了两段数据：6001-7001，8001-10001，此时仍不能确认7001-8001是否lost</p>
+<p>16序号数据包发送了14001-15001，继续发送数据</p>
+<p>17序号数据包确认了5001之前的数据均已收到，SACK了两段数据：6001-7001，8001-11001，此时7001-8001已经满足SACK丢包判定条件2</p>
+<p>18序号数据包重传了7001-8001，确实是触发了快速重传</p>
+<p>至此，之前SACK中存在的空洞都已经完成了一次重传，因此后续的数据包在有窗口的情况下都是发送新的数据，而不再重传一直未确认的5001-6001和7001-8001，直到27序号数据包，触发了超时重传，以及后续的超时退避重传。这些表现均跟预期的相吻合，而且在4.18和4.19的内核版本均一致。</p>
+<p>然后，我们再打开RACK，sysctl net.ipv4.tcp_recovery=1, 跑相同的这个脚本，抓包如下：</p>
+<p>![](/pic/屏幕快照 2020-06-30 下午4.16.14.png)</p>
+<p>11序号数据包确认了1001之前的数据均已收到，SACK了三段数据：2001-5001，6001-7001，8001-10001</p>
+<p>12序号数据包重传了1001-2001，为快速重传</p>
+<p>13序号数据包重传了5001-6001，为快速重传</p>
+<p>14序号数据包重传了7001-8001，为快速重传，这一块跟RACK关闭时有明显区别，可以看到没被SACK确认为丢包，但是被RACK确认成丢包便重传了这段数据</p>
+<p>15序号数据包发送了12001-14001，继续向前发送数据包</p>
+<p>16序号数据包确认了5001之前的数据均已收到，SACK了两段数据：6001-7001，8001-10001</p>
+<p>23序号数据包重传了5001-6001，观察23序号包与13序号包，可以确认为RACK又一次触发了这个数据包的快速重传</p>
+<p>25序号数据包重传了7001-8001，同样为快速重传</p>
+<p><strong>可以看到在开启RACK时，5001-6001不止会快速重传1次，在这看到快速重传了2次，如果继续加大dup ACK的个数，可以看到会继续触发快速重传</strong>，如下图所示：</p>
+<p><img src="/pic/K20200630-202626.png" alt=""></p>
+<h2 id="结论">结论</h2>
+<ol>
+<li>业务出问题的抓包中，分析到丢失的包一直未触发重传，猜测有可能是SACK触发了一次快速重传，但是该重传报文丢失了，在未开启RACK的情况下，这个数据包不会再触发快速重传，只能等超时重传。</li>
+<li>为了防止SACK中触发的快速重传报文丢失后，无法再次触发快速重传，我们应该开启RACK，保证能通过RACK的方式触发多次快速重传。</li>
+<li>通过对业务出现问题的场景进行重放分析，我们发现无论是4.18版本的内核还是4.19的内核复现出的结果都是一致的，且均符合预期，对比是否开启RACK时协议栈的表现，推测当时的环境上应该关闭了RACK。但是据了解RACK默认是开启的，业务自己关闭的可能性比较小，因此当时环境到底是啥情况呢，还是一个迷呀，最好再复现时能够现场确认求证下！！！</li>
+</ol>
+<h2 id="参考文献">参考文献</h2>
+<p>《TCP Selective Acknowledgment Options》：https://tools.ietf.org/html/rfc2018</p>
+<p>《A Conservative Loss Recovery Algorithm Based on Selective Acknowledgment (SACK) for TCP》：https://tools.ietf.org/html/rfc6675</p>
+
+    </div>
+
+    <div class="post-copyright">
+  <p class="copyright-item">
+    <span class="item-title">Author</span>
+    <span class="item-content">bianze</span>
+  </p>
+  <p class="copyright-item">
+    <span class="item-title">LastMod</span>
+    <span class="item-content">
+        2020-06-30
+        
+    </span>
+  </p>
+  
+  
+</div>
+<footer class="post-footer">
+      <div class="post-tags">
+          <a href="/tags/tcp/">TCP</a>
+          </div>
+      <nav class="post-nav">
+        <a class="prev" href="/post/network_packetdrill_introduction/">
+            <i class="iconfont icon-left"></i>
+            <span class="prev-text nav-default">Packetdrill介绍和分析</span>
+            <span class="prev-text nav-mobile">Prev</span>
+          </a>
+        <a class="next" href="/post/tools_macos_hugo_github_blog/">
+            <span class="next-text nav-default">MacOS Hugo&#43;github pages搭建个人博客</span>
+            <span class="next-text nav-mobile">Next</span>
+            <i class="iconfont icon-right"></i>
+          </a>
+      </nav>
+    </footer>
+  </article>
+        </div>
+        
+
+  
+
+  
+
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="social-links">
+      <a href="mailto:your@email.com" class="iconfont icon-email" title="email"></a>
+      <a href="http://localhost:1313" class="iconfont icon-stack-overflow" title="stack-overflow"></a>
+      <a href="http://localhost:1313" class="iconfont icon-twitter" title="twitter"></a>
+      <a href="http://localhost:1313" class="iconfont icon-facebook" title="facebook"></a>
+      <a href="http://localhost:1313" class="iconfont icon-linkedin" title="linkedin"></a>
+      <a href="http://localhost:1313" class="iconfont icon-google" title="google"></a>
+      <a href="http://localhost:1313" class="iconfont icon-github" title="github"></a>
+      <a href="http://localhost:1313" class="iconfont icon-weibo" title="weibo"></a>
+      <a href="http://localhost:1313" class="iconfont icon-zhihu" title="zhihu"></a>
+      <a href="http://localhost:1313" class="iconfont icon-douban" title="douban"></a>
+      <a href="http://localhost:1313" class="iconfont icon-pocket" title="pocket"></a>
+      <a href="http://localhost:1313" class="iconfont icon-tumblr" title="tumblr"></a>
+      <a href="http://localhost:1313" class="iconfont icon-instagram" title="instagram"></a>
+      <a href="http://localhost:1313" class="iconfont icon-gitlab" title="gitlab"></a>
+      <a href="http://localhost:1313" class="iconfont icon-bilibili" title="bilibili"></a>
+  <a href="http://localhost:1313/index.xml" type="application/rss+xml" class="iconfont icon-rss" title="rss"></a>
+</div>
+
+<div class="copyright">
+  <span class="power-by">
+    Powered by <a class="hexo-link" href="https://gohugo.io">Hugo</a>
+  </span>
+  <span class="division">|</span>
+  <span class="theme-info">
+    Theme - 
+    <a class="theme-link" href="https://github.com/olOwOlo/hugo-theme-even">Even</a>
+  </span>
+
+  
+
+  <span class="copyright-year">
+    &copy; 
+    2017 - 
+    2020
+    <span class="heart">
+      <i class="iconfont icon-heart"></i>
+    </span>
+    <span class="author">bianze</span>
+  </span>
+</div>
+    </footer>
+
+    <div class="back-to-top" id="back-to-top">
+      <i class="iconfont icon-up"></i>
+    </div>
+  </div>
+  
+  <script src="https://cdn.jsdelivr.net/npm/jquery@3.2.1/dist/jquery.min.js" integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4=" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/slideout@1.0.1/dist/slideout.min.js" integrity="sha256-t+zJ/g8/KXIJMjSVQdnibt4dlaDxc9zXr/9oNPeWqdg=" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@3.1.20/dist/jquery.fancybox.min.js" integrity="sha256-XVLffZaxoWfGUEbdzuLi7pwaUJv1cecsQJQqGLe7axY=" crossorigin="anonymous"></script>
+
+
+
+<script type="text/javascript" src="/js/main.min.d7b7ada643c9c1a983026e177f141f7363b4640d619caf01d8831a6718cd44ea.js"></script>
+
+
+
+
+
+
+
+
+</body>
+</html>

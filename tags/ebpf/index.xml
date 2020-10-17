@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>EBPF on bianze - Welcome to bianze&#39;s blog</title>
+    <link>http://localhost:1313/tags/ebpf/</link>
+    <description>Recent content in EBPF on bianze - Welcome to bianze&#39;s blog</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en</language>
+    <lastBuildDate>Tue, 21 Jul 2020 11:27:45 +0800</lastBuildDate>
+    
+	<atom:link href="http://localhost:1313/tags/ebpf/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>容器网络数据面XDP redirect实践</title>
+      <link>http://localhost:1313/post/ebpf_xdp_redirect/</link>
+      <pubDate>Tue, 21 Jul 2020 11:27:45 +0800</pubDate>
+      
+      <guid>http://localhost:1313/post/ebpf_xdp_redirect/</guid>
+      <description>背景 内核网络栈处理比较厚重，社区为此引入了ebpf方案，在内核协议栈的多处处理路径上设了hook，以方便开发者attach ebpf程序byp</description>
+    </item>
+    
+  </channel>
+</rss>

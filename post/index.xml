@@ -6,10 +6,55 @@
     <description>Recent content in Posts on bianze - Welcome to bianze&#39;s blog</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en</language>
-    <lastBuildDate>Sat, 27 Jun 2020 17:04:55 +0800</lastBuildDate>
+    <lastBuildDate>Mon, 24 Aug 2020 16:41:34 +0800</lastBuildDate>
     
 	<atom:link href="http://localhost:1313/post/index.xml" rel="self" type="application/rss+xml" />
     
+    
+    <item>
+      <title>Linux RSS RPS RFS剖析</title>
+      <link>http://localhost:1313/post/network_rps_analysis/</link>
+      <pubDate>Mon, 24 Aug 2020 16:41:34 +0800</pubDate>
+      
+      <guid>http://localhost:1313/post/network_rps_analysis/</guid>
+      <description>引言 在网络负载高的系统中，我们经常可以看到某个CPU的软中断消耗非常高，这时这个CPU容易跑满，性能达到瓶颈值。为优化系统性能，需均衡收包软</description>
+    </item>
+    
+    <item>
+      <title>TCP delay ACK超时动态调节分析</title>
+      <link>http://localhost:1313/post/tcp_quick_delay_ack/</link>
+      <pubDate>Wed, 12 Aug 2020 19:51:46 +0800</pubDate>
+      
+      <guid>http://localhost:1313/post/tcp_quick_delay_ack/</guid>
+      <description>引言 之前有相关的patch将TCP_DELACK_MIN和TCP_DELACK_MAX通过sysctl方式export到proc文件系统，通</description>
+    </item>
+    
+    <item>
+      <title>容器网络数据面XDP redirect实践</title>
+      <link>http://localhost:1313/post/ebpf_xdp_redirect/</link>
+      <pubDate>Tue, 21 Jul 2020 11:27:45 +0800</pubDate>
+      
+      <guid>http://localhost:1313/post/ebpf_xdp_redirect/</guid>
+      <description>背景 内核网络栈处理比较厚重，社区为此引入了ebpf方案，在内核协议栈的多处处理路径上设了hook，以方便开发者attach ebpf程序byp</description>
+    </item>
+    
+    <item>
+      <title>Packetdrill介绍和分析</title>
+      <link>http://localhost:1313/post/network_packetdrill_introduction/</link>
+      <pubDate>Fri, 03 Jul 2020 11:49:57 +0800</pubDate>
+      
+      <guid>http://localhost:1313/post/network_packetdrill_introduction/</guid>
+      <description>简介 Packetdrill是Google开发并开源的一款协议栈测试工具，可以测试TCP/UDP/ICMP/IPV4/IPV6协议，目前支持L</description>
+    </item>
+    
+    <item>
+      <title>TCP开启SACK后dup ACK未触发快速重传问题分析</title>
+      <link>http://localhost:1313/post/tcp_sack_dupack/</link>
+      <pubDate>Tue, 30 Jun 2020 11:12:42 +0800</pubDate>
+      
+      <guid>http://localhost:1313/post/tcp_sack_dupack/</guid>
+      <description>问题现象 在业务跑的过程中，发现tcp数据包的时延存在抖动的情况，内核版本为4.18-***，抓到如下所示的数据包： 可以看到从206开始的AC</description>
+    </item>
     
     <item>
       <title>MacOS Hugo&#43;github pages搭建个人博客</title>
